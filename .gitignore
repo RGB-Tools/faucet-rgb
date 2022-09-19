@@ -1,0 +1,8 @@
+# editors
+/.vim
+
+# Python
+**/__pycache__
+
+# Flask
+/instance

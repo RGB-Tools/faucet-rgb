@@ -1,0 +1,37 @@
+[tool.poetry]
+name = 'faucet-rgb'
+version = '0.1.0'
+description = 'RGB faucet'
+authors = ['Zoe Faltibà <zoefaltiba@gmail.com>', 'Nicola Busanello <nicola.busanello@gmail.com>']
+license = 'MIT'
+
+[tool.poetry.dependencies]
+python = '^3.9'
+Flask = '^2.2.2'
+rgb-lib = '0.1.1'
+
+[tool.poetry.group.dev.dependencies]
+pylama = "^8.4.1"
+isort = "^5.10.1"
+yapf = "^0.32.0"
+toml = "^0.10.2"
+pylint = "^2.15.2"
+
+[tool.poetry.group.production.dependencies]
+waitress = "^2.1.2"
+
+[tool.isort]
+filter_files = true
+include_trailing_comma = false
+multi_line_output = 4
+
+[tool.yapf]
+based_on_style = 'pep8'
+split_penalty_import_names = 1000
+
+[build-system]
+requires = ['poetry-core>=1.0.0']
+build-backend = 'poetry.core.masonry.api'
+
+[tool.poetry.scripts]
+issue-asset = 'issue_asset:entrypoint'
