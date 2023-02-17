@@ -1,17 +1,16 @@
-"""Module to issue RGB20 and RGB21 assets."""
+"""Module to issue RGB20 and RGB121 assets."""
 
 import argparse
 import os
 import sys
 
 import rgb_lib
-from flask import Flask
 
 from faucet_rgb import settings, utils
 
 
 def _confirm_summary(args, to_print):
-    print(f"You're about to issue this {args.schema} asset:")
+    print(f"You're about to issue the following {args.schema} asset:")
     for arg in to_print:
         print(f' - {arg}: {getattr(args, arg)}')
     print('are you sure you want to issue this asset? [y/n] ', end='')
@@ -30,10 +29,10 @@ def _issue_asset(wallet, online, args):
         _confirm_summary(args, common + ['ticker'])
         asset = wallet.issue_asset_rgb20(online, args.ticker, args.name,
                                          args.precision, args.amounts)
-    elif args.schema.lower() == 'rgb21':
+    elif args.schema.lower() == 'rgb121':
         _confirm_summary(args,
                          common + ['description', 'parent_id', 'file_path'])
-        asset = wallet.issue_asset_rgb21(
+        asset = wallet.issue_asset_rgb121(
             online, args.name, args.description, args.precision, args.amounts,
             args.parent_id if args.parent_id else None,
             args.file_path if args.file_path else None)
@@ -47,7 +46,7 @@ def entrypoint():
     """Poetry script entrypoint."""
     parser = argparse.ArgumentParser(description='Issue an asset.')
     # asset type
-    parser.add_argument('schema', help='RGB20 or RGB21')
+    parser.add_argument('schema', help='RGB20 or RGB121')
     # mandatory common arguments
     parser.add_argument('name', help='asset name')
     parser.add_argument('precision', type=int, help='asset precision')
@@ -58,37 +57,30 @@ def entrypoint():
                         help="Uppercase ticker for RGB20 assets")
     parser.add_argument('--description',
                         nargs='?',
-                        help="Description for RGB21 assets")
+                        help="Description for RGB121 assets")
     parser.add_argument('--parent_id',
                         nargs='?',
-                        help='parent_id for RGB21 assets')
+                        help='parent_id for RGB121 assets')
     parser.add_argument('--file_path',
                         nargs='?',
-                        help='path to media file for RGB21 assets')
+                        help='path to media file for RGB121 assets')
     args = parser.parse_args()
 
-    # get flask app configuration
-    app = Flask(__name__, instance_relative_config=True)
-    app.config.from_object(settings.Config)
-    app.config.from_pyfile('config.py', silent=True)
-    app.config.from_envvar('FAUCET_SETTINGS', silent=True)
-
-    data_dir = app.config['DATA_DIR']
-    network = app.config['NETWORK']
-
-    # setup
+    app = settings.get_app(__name__)
+    (data_dir, network) = (app.config['DATA_DIR'], app.config['NETWORK'])
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     online, wallet = utils.wallet.init_wallet(app.config['ELECTRUM_URL'],
-                                              app.config['PROXY_URL'],
                                               app.config['XPUB'],
                                               app.config['MNEMONIC'], data_dir,
                                               network)
 
     # asset issuance
     try:
-        _issue_asset(wallet, online, args)
-    except rgb_lib.RgbLibError.InsufficientAllocationSlots:
-        print('Not enough allocations, creating UTXOs...')
-        wallet.create_utxos(online, True, len(args.amounts) + 2)
-        _issue_asset(wallet, online, args)
+        count = wallet.create_utxos(online, True,
+                                    len(args.amounts) + 2, None,
+                                    app.config['FEE_RATE'])
+        print(f'{count} new UTXOs created')
+    except rgb_lib.RgbLibError.AllocationsAlreadyAvailable:
+        pass
+    _issue_asset(wallet, online, args)

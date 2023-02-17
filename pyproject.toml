@@ -6,19 +6,19 @@ authors = ['Zoe Faltibà <zoefaltiba@gmail.com>', 'Nicola Busanello <nicola.busa
 license = 'MIT'
 
 [tool.poetry.dependencies]
-python = '^3.9'
 Flask = '^2.2.2'
-rgb-lib = '0.1.1'
 Flask-APScheduler = "^1.12.4"
-bdkpython = "^0.3.0"
+bdkpython = "^0.26.2"
 flask-sqlalchemy = "^3.0.2"
+python = '^3.9'
+rgb-lib = '0.1.7'
 
 [tool.poetry.group.dev.dependencies]
-pylama = "^8.4.1"
 isort = "^5.10.1"
-yapf = "^0.32.0"
+pylama = "^8.4.1"
+pylint = "^2.16.2"
 toml = "^0.10.2"
-pylint = "^2.15.2"
+yapf = "^0.32.0"
 
 [tool.poetry.group.production.dependencies]
 waitress = "^2.1.2"

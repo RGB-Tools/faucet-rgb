@@ -4,7 +4,7 @@ from flask import current_app
 
 from .database import Request, db
 from .scheduler import scheduler, send_next_batch
-from .utils import get_current_timestamp
+from .utils import get_current_timestamp, get_logger
 
 
 def batch_donation():
@@ -20,6 +20,7 @@ def batch_donation():
     """
     # get configuration variables
     with scheduler.app.app_context():
+        logger = get_logger(__name__)
         online = current_app.config['ONLINE']
         wallet = current_app.config['WALLET']
         min_requests = current_app.config['MIN_REQUESTS']
@@ -28,14 +29,13 @@ def batch_donation():
 
         # refresh pending transfers
         try:
-            wallet.refresh(online, None)
+            wallet.refresh(online, None, [])
         except Exception as err:
-            current_app.logger.error(
-                f'error refreshing transfers: {repr(err)}')
+            logger.error('error refreshing transfers: %s', repr(err))
 
         # reset status for requests left being processed to "pending"
         Request.query.filter_by(status=30).all()
-        Request.query.filter_by(status=30).update(dict(status=20))
+        Request.query.filter_by(status=30).update({'status': 20})
         db.session.commit()  # pylint: disable=no-member
 
         # checks

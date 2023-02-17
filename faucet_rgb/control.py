@@ -3,6 +3,8 @@
 from flask import Blueprint, current_app, jsonify, request
 from rgb_lib import TransferStatus
 
+from faucet_rgb import utils
+
 bp = Blueprint('control', __name__, url_prefix='/control')
 
 
@@ -15,33 +17,9 @@ def assets():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.refresh(online, None)
+    wallet.refresh(online, None, [])
     asset_list = wallet.list_assets([])
-    asset_dict = {}
-    for asset in asset_list.rgb20 + asset_list.rgb21:
-        asset_dict[asset.asset_id] = {
-            'balance': {
-                'settled': asset.balance.settled,
-                'future': asset.balance.future
-            },
-            'name': asset.name,
-            'precision': asset.precision,
-        }
-        if hasattr(asset, 'ticker'):
-            asset_dict[asset.asset_id]['ticker'] = asset.ticker
-        if hasattr(asset, 'description'):
-            asset_dict[asset.asset_id]['description'] = asset.description
-        if hasattr(asset, 'parent_id'):
-            asset_dict[asset.asset_id]['parent_id'] = asset.parent_id
-        if hasattr(asset, 'data_paths'):
-            for data_path in asset.data_paths:
-                print('data path', data_path, type(data_path))
-                path_list = asset_dict[asset.asset_id].setdefault(
-                    'data_paths', [])
-                path_list.append({
-                    'mime-type': data_path.mime,
-                    'path': data_path.file_path,
-                })
+    asset_dict = utils.get_asset_dict(asset_list.rgb20 + asset_list.rgb121)
     return jsonify({'assets': asset_dict})
 
 
@@ -53,7 +31,7 @@ def delete_transfers():
         return jsonify({'error': 'unauthorized'}), 401
 
     wallet = current_app.config["WALLET"]
-    wallet.delete_transfers(None, None)
+    wallet.delete_transfers(None, None, False)
     return jsonify({}), 204
 
 
@@ -66,7 +44,7 @@ def fail_transfers():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.fail_transfers(online, None, None)
+    wallet.fail_transfers(online, None, None, False)
     return jsonify({}), 204
 
 
@@ -99,21 +77,27 @@ def list_transfers():
     # refresh and list transfers in matching status(es)
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.refresh(online, None)
+    wallet.refresh(online, None, [])
     asset_list = wallet.list_assets([])
-    asset_ids = [a.asset_id for a in asset_list.rgb20 + asset_list.rgb21]
+    asset_ids = [a.asset_id for a in asset_list.rgb20 + asset_list.rgb121]
     transfers = []
     for asset_id in asset_ids:
         asset_transfers = wallet.list_transfers(asset_id)
         for transfer in asset_transfers:
             if transfer.status not in status_filter:
                 continue
+            tces = [{
+                'endpoint': tce.endpoint,
+                'protocol': tce.protocol.name,
+                'used': tce.used
+            } for tce in transfer.consignment_endpoints]
             transfers.append({
                 'status': transfer.status.name,
                 'amount': transfer.amount,
-                'incoming': transfer.incoming,
+                'kind': transfer.kind.name,
                 'txid': transfer.txid,
                 'blinded_utxo': transfer.blinded_utxo,
+                'consignment_endpoints': tces,
             })
     return jsonify({'transfers': transfers})
 
@@ -128,7 +112,7 @@ def refresh(asset_id):
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
     try:
-        wallet.refresh(online, asset_id)
+        wallet.refresh(online, asset_id, [])
         return jsonify('{}'), 204
     except Exception as err:  # pylint: disable=broad-except
         return jsonify({'error': f'Unknown error: {err}'}), 500
@@ -143,10 +127,5 @@ def unspents():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.refresh(online, None)
-    unspent_list = wallet.list_unspents(False)
-    unspent_dict = {}
-    for unspent in unspent_list:
-        unspent_dict[str(
-            unspent.utxo)] = [str(a) for a in unspent.rgb_allocations]
+    unspent_dict = utils.wallet.get_unspent_dict(wallet, online)
     return jsonify({'unspents': unspent_dict})

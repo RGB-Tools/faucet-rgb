@@ -1,27 +1,5 @@
 # RGB Faucet
 
-## Endpoints
-
-- `/control/assets` list assets
-- `/control/delete` delete failed transfers
-- `/control/fail` fail pending transfers
-- `/control/refresh/<asset_id>` requests a refresh for transfers of the given
-  asset
-- `/control/transfers?status` list transfers, pending ones by default or
-  in the status provided as query parameter
-- `/control/unspents` returns the list of wallet unspents and related RGB
-  allocations
-- `/reserve/top_up_btc` returns the first unused address of the faucet's
-  bitcoin wallet
-- `/reserve/top_up_rgb` returns a faucet blinded UTXO
-- `/receive/config` requests the faucet's configuration (name + groups)
-- `/receive/requests?asset_id&blinded_utxo&wallet_id` returns a list of served
-  requests; can be filtered for `asset_id`, `blinded_utxo` or `wallet_id` via
-  query parameters
-- `/receive/<wallet_id>/<blinded_utxo>?asset_group` sends the configured amount of an asset in
-  optional group `group` to `<blinded_utxo>`; if no group is provided, a random
-  one is chosen
-
 ## Requirements
 - Python 3.9+
 - Poetry 1.2+
@@ -32,7 +10,7 @@ A default configuration is hard-coded in the `settings` module.
 
 Configuration variables can then be overridden via a configuration file in
 either of two locations. The first option is a `config.py` file inside the app
-instance directory. The second option is a location provided via the
+`instance` directory. The second option is a location provided via the
 environment variable `FAUCET_SETTINGS`. The two options can be combined, the
 instance configuration will override the default one and the file pointed to by
 the environment variable will take precedence, overriding both.
@@ -46,11 +24,11 @@ variables:
 
 The `ASSETS` variable is a dictionary with group names (strings) as keys. Each
 group is a dictionary with the following fields:
-- `label` (string): a label for the group, appears on wallets
+- `label` (string): a label for the group
 - `assets` (list): a list of dictionaries, with each entry having the following
   items:
   - `asset_id` (string): the ID of the asset
-  - `amount` (int): the amount to send to each recipient
+  - `amount` (int): the amount to be sent to each recipient
 
 An example `ASSETS` declaration:
 ```python
@@ -78,15 +56,47 @@ ASSETS = {
 }
 ```
 
+See the `Config` class in the `faucet_rgb/settings.py` file for details on
+configuration variables.
+
 ## Authentication
 
-Some endpoints are open and do not require authentication (e.g.
-`/receive/config`) while others require authentication via an API key to be
-sent in the `X-Api-Key` header.
+Endpoints require authentication via an API key, to be sent in the `X-Api-Key`
+header.
 
 There are two configurable API keys for authenticated requests:
  - `API_KEY`: user requests (e.g. `/receive/<wallet_id>/<blinded_utxo>`)
  - `API_KEY_OPERATOR`: operator requests (e.g. `/receive/requests`)
+
+APIs will return an `{"error":"unauthorized"}` if the provided API key is
+wrong.
+
+## Endpoints
+
+The available endpoints are:
+- `/control/assets` list assets
+- `/control/delete` delete failed transfers
+- `/control/fail` fail pending transfers
+- `/control/refresh/<asset_id>` requests a refresh for transfers of the given
+  asset
+- `/control/transfers?status=<status>` list transfers, pending ones by default
+  or in the status (rgb-lib's TransferStatus) provided as query parameter
+- `/control/unspents` returns the list of wallet unspents and related RGB
+  allocations
+- `/reserve/top_up_btc` returns the first unused address of the faucet's
+  bitcoin wallet
+- `/reserve/top_up_rgb` returns a blinded UTXO for the faucet's RGB wallet
+- `/receive/asset/<wallet_id>/<blinded_utxo>?asset_group=<asset_group>` sends
+  the configured amount of a random asset in optional group `<asset_group>` to
+  `<blinded_utxo>`; if no group is provided, a random one is chosen;
+- `/receive/config/<wallet_id>` requests the faucet's configuration (name +
+  groups)
+- `/receive/requests?asset_id=<asset_id>&blinded_utxo=<blinded_utco>&wallet_id=<wallet_id>`
+  returns a list of received asset requests; can be filtered for `<asset_id>`,
+  `<blinded_utxo>` or `<wallet_id>` via query parameters
+
+Notes:
+- `<wallet_id>` needs to be a valid xpub
 
 ## Development
 
@@ -105,16 +115,10 @@ fails trying to acquire a lock on open database files.
 - using `--debug` will prevent the scheduler from running
 
 
-To test the development server:
+To test the development server (`<wallet_id>` needs to be a valid xpub):
 ```shell
-curl -i localhost:5000/receive/config
+curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 ```
-
-To test an authenticated call to the development server:
-```shell
-curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/id/blindedutxo
-```
-will return an "unauthorized" error if the API key is wrong.
 
 ## Production
 
@@ -125,24 +129,29 @@ poetry install --sync --without dev
 
 Example running the app in production mode:
 ```shell
-export FAUCET_SETTINGS=/home/user/rgb-faucet/config.py
+export FAUCET_SETTINGS=</path/to/config.py>
 poetry run waitress-serve --host=127.0.0.1 --call 'faucet_rgb:create_app'
 ```
 
-To test the production server locally:
+To test the production server locally (`<wallet_id>` needs to be a valid xpub):
 ```shell
-curl -i localhost:8080/receive/config
+curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 ```
 
-## Initial setup
+## Initial setup example
+
+Choose a directory to hold the faucet data (e.g. `/srv/faucet`), create the
+`config.py` file inside it, then export the `FAUCET_SETTINGS` environment
+variable set to its path (e.g. `export FAUCET_SETTINGS=/srv/faucet/config.py`).
 
 Configure the `DATA_DIR` and `NETWORK` parameters, then create a new wallet:
 ```shell
 poetry run wallet-helper --init
 ```
 
-Configure the printed `mnemonic` and `xpub`, then generate an address and send
-some bitcoins, to be used for creating UTXOs to hold RGB allocations:
+Configure the printed `mnemonic` and `xpub` using the related (uppercase)
+variables, then generate an address and send some bitcoins (e.g. 10k sats), to
+be used for creating UTXOs to hold RGB allocations:
 ```shell
 poetry run wallet-helper --address
 ```
@@ -155,13 +164,12 @@ poetry run wallet-helper --unspents
 poetry run wallet-helper --assets
 ```
 
-Issue at least one asset. If no allocation slots are available, some are
+Issue at least one asset. If no allocation slots are available, some will be
 created automatically. As an example:
 ```shell
 poetry run issue-asset rgb20 "fungible token" 0 1000 1000 --ticker "FFA"
-poetry run issue-asset rgb21 "NFT" 0 10 10 --description "a collectible" --file_path ./README.md
+poetry run issue-asset rgb121 "CTB" 0 10 10 --description "a collectible" --file_path ./README.md
 ```
 
-Finally, write the complete configuration, including the issued assets under
-the `ASSETS` variable, to the instance configuration or to a separate file that
-will be exported via the `FAUCET_SETTINGS` environment variable.
+Finally, complete the configuration by defining the faucet's `NAME` and the
+`ASSETS` dictionary with the issued assets.

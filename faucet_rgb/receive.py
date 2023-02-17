@@ -1,14 +1,11 @@
 """Faucet blueprint to top-up funds."""
 
 import random
-import threading
 
 from flask import Blueprint, current_app, jsonify, request
 
 from .database import Request, db
-from .utils import get_current_timestamp, get_rgb_asset
-from .utils.scheduler import trigger_task
-from .utils.api import is_send_possible
+from .utils import get_current_timestamp, get_logger, get_rgb_asset
 from .utils.wallet import is_xpub_valid
 
 bp = Blueprint('receive', __name__, url_prefix='/receive')
@@ -108,6 +105,7 @@ def request_rgb_asset(wallet_id, blinded_utxo):
     - each request is checked before saving to db to make sure it can be sent
     - valid requests are saved, processing is tried immediately in a thread
     """
+    logger = get_logger(__name__)
     auth = request.headers.get('X-Api-Key')
     if auth != current_app.config['API_KEY']:
         return jsonify({'error': 'unauthorized'}), 401
@@ -124,16 +122,17 @@ def request_rgb_asset(wallet_id, blinded_utxo):
             return jsonify({'error': 'Invalid asset group'}), 404
     else:
         asset_group = random.choice(list(configured_assets))
+    asset = random.choice(list(configured_assets[asset_group]['assets']))
 
     # max 1 request per asset group per wallet ID
     reqs = Request.query.filter(Request.wallet_id == wallet_id,
                                 Request.asset_group == asset_group).count()
     if reqs:
-        current_app.logger.debug(
-            f'wallet {wallet_id} already requested from group {asset_group}')
+        logger.debug('wallet %s already requested from group %s', wallet_id,
+                     asset_group)
         return jsonify({
             'error':
-            f'asset donation from group {asset_group} already requested'
+            'asset donation from this group has already been requested'
         }), 403
 
     # add request to db so max requests check works right away (no double req)
@@ -147,16 +146,6 @@ def request_rgb_asset(wallet_id, blinded_utxo):
     req_idx = req.first().idx
     db.session.commit()
     # pylint: enable=no-member
-
-    # check if send is possible
-    possible, asset, error = is_send_possible(
-        configured_assets[asset_group]['assets'], blinded_utxo)
-    if not possible:
-        current_app.logger.info(f'error: {error}')
-        # delete request so user can try again
-        Request.query.filter(Request.idx == req_idx).delete()
-        db.session.commit()  # pylint: disable=no-member
-        return jsonify({'error': error}), 400
 
     # prepare asset data
     rgb_asset, schema = get_rgb_asset(asset['asset_id'])
@@ -181,16 +170,14 @@ def request_rgb_asset(wallet_id, blinded_utxo):
 
     # update request on db: update status, set asset_id and amount
     # pylint: disable=no-member
-    current_app.logger.debug(
-        f'setting request {req_idx}: asset_id {asset["asset_id"]}, amount {asset["amount"]}'
-    )
-    Request.query.filter_by(idx=req_idx).update(
-        dict(status=20, asset_id=asset['asset_id'], amount=asset['amount']))
+    logger.debug('setting request %s: asset_id %s, amount %s', req_idx,
+                 asset["asset_id"], asset["amount"])
+    Request.query.filter_by(idx=req_idx).update({
+        "status": 20,
+        "asset_id": asset['asset_id'],
+        "amount": asset['amount']
+    })
     db.session.commit()
     # pylint: enable=no-member
-
-    # trigger scheduled task run so sending can be processes ASAP
-    thread = threading.Thread(target=trigger_task)
-    thread.start()
 
     return jsonify({'asset': asset_data})

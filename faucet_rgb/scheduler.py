@@ -4,6 +4,8 @@ import rgb_lib
 from flask import current_app
 from flask_apscheduler import APScheduler
 
+from faucet_rgb.utils import get_logger
+
 from .database import Request, db
 
 scheduler = APScheduler()
@@ -19,9 +21,11 @@ def send_next_batch():
     - workaround the PSBT key error issue on mutliple assets per UTXO
     """
     with scheduler.app.app_context():
+        logger = get_logger(__name__)
         cfg = {}
         cfg['online'] = current_app.config['ONLINE']
         cfg['wallet'] = current_app.config['WALLET']
+        cfg['fee_rate'] = current_app.config['FEE_RATE']
         cfg['req_number'] = current_app.config['MIN_REQUESTS']
         cfg['single_asset'] = current_app.config['SINGLE_ASSET_SEND']
 
@@ -47,24 +51,28 @@ def send_next_batch():
             for req in reqs:
                 if req.asset_id == asset_id:
                     recipient_list.append(
-                        rgb_lib.Recipient(req.blinded_utxo, req.amount))
+                        rgb_lib.Recipient(
+                            req.blinded_utxo, req.amount,
+                            current_app.config['CONSIGNMENT_ENDPOINTS']))
             recipient_map[asset_id] = recipient_list
 
         # try sending
         try:
             # set request status to "processing"
-            current_app.logger.info('sending batch donation')
+            logger.info('sending batch donation')
             for req in reqs:
-                Request.query.filter_by(idx=req.idx).update(dict(status=30))
+                Request.query.filter_by(idx=req.idx).update({"status": 30})
             db.session.commit()  # pylint: disable=no-member
 
             # send assets
-            txid = cfg['wallet'].send(cfg['online'], recipient_map, True)
-            current_app.logger.info(f'batch donation sent with TXID: {txid}')
+            txid = cfg['wallet'].send(cfg['online'], recipient_map, True,
+                                      cfg['fee_rate'])
+            logger.info('batch donation sent with TXID: %s', txid)
 
             # update status for served requests
             for req in reqs:
-                Request.query.filter_by(idx=req.idx).update(dict(status=40))
+                Request.query.filter_by(idx=req.idx).update({'status': 40})
             db.session.commit()  # pylint: disable=no-member
-        except rgb_lib.RgbLibError.InsufficientAssets:
-            current_app.logger.error('Not enough assets, send failed')
+        except (rgb_lib.RgbLibError.InsufficientSpendableAssets,
+                rgb_lib.RgbLibError.InsufficientTotalAssets):
+            logger.error('Not enough assets, send failed')
