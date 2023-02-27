@@ -83,4 +83,8 @@ def entrypoint():
         print(f'{count} new UTXOs created')
     except rgb_lib.RgbLibError.AllocationsAlreadyAvailable:
         pass
+    except rgb_lib.RgbLibError.InsufficientBitcoins as err:
+        print((f'Insufficient funds ({err.available} available sats).\n'
+               f'Funds can be sent to the following address'), wallet.get_address())
+        sys.exit(1)
     _issue_asset(wallet, online, args)

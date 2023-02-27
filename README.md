@@ -166,6 +166,13 @@ poetry run wallet-helper --assets
 
 Issue at least one asset. If no allocation slots are available, some will be
 created automatically. As an example:
+
+> Note: issuance in RGB may require the wallet to create new UTXOs,
+> It means it must somehow deal with the blockchain.
+> The default configuration is for testnet. Thus to run the following command
+> for other networks requires you to specify `ELECTRUM_URL` in `config.py`.
+
+
 ```shell
 poetry run issue-asset rgb20 "fungible token" 0 1000 1000 --ticker "FFA"
 poetry run issue-asset rgb121 "CTB" 0 10 10 --description "a collectible" --file_path ./README.md
