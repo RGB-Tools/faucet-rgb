@@ -61,6 +61,12 @@ class Config():  # pylint: disable=too-few-public-methods
     # extended pubkey for the underlying Bitcoin wallet
     XPUB = None
 
+    # Map: asset_id => asset_id
+    # When a user request a new asset issuance, faucet-rgb first checks if
+    # the users wallet ID has any previously issued asset in a key in the map.
+    # If there is, faucet-rgb will re-issue an asset within the value.
+    ASSET_REISSUANCE_MAP = None
+
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods
     """Filter out apscheduler logs."""

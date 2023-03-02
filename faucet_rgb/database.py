@@ -24,8 +24,9 @@ class Request(db.Model):  # pylint: disable=too-few-public-methods
     asset_group = db.Column(db.String(256), nullable=False)
     asset_id = db.Column(db.String(256), nullable=True)
     amount = db.Column(db.Integer, nullable=True)
+    reissuance_of = db.Column(db.Integer, nullable = True)
 
-    def __init__(self, wallet_id, blinded_utxo, asset_group, asset_id, amount):  # pylint: disable=too-many-arguments
+    def __init__(self, wallet_id, blinded_utxo, asset_group, asset_id, amount, reissuance_of = None):  # pylint: disable=too-many-arguments
         self.timestamp = get_current_timestamp()
         self.status = 10
         self.wallet_id = wallet_id
@@ -33,8 +34,10 @@ class Request(db.Model):  # pylint: disable=too-few-public-methods
         self.asset_group = asset_group
         self.asset_id = asset_id
         self.amount = amount
+        self.reissuance_of = reissuance_of
 
     def __str__(self):
         return (f'{STATUS_MAP[self.status]} '
                 f'{self.timestamp} {self.wallet_id} {self.blinded_utxo} '
-                f'{self.asset_group} {self.asset_id} {self.amount}')
+                f'{self.asset_group} {self.asset_id} {self.amount} '
+                f'{self.reissuance_of}')

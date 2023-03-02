@@ -24,6 +24,7 @@ def list_requests():
     - 'wallet_id'
     """
     auth = request.headers.get('X-Api-Key')
+
     if auth != current_app.config['API_KEY_OPERATOR']:
         return jsonify({'error': 'unauthorized'}), 401
 
@@ -114,70 +115,137 @@ def request_rgb_asset(wallet_id, blinded_utxo):
     if not is_xpub_valid(wallet_id):
         return jsonify({'error': 'invalied wallet ID'}), 403
 
-    # choose asset group
-    configured_assets = current_app.config["ASSETS"]
-    asset_group = request.args.get('asset_group')
-    if asset_group is not None:
-        if asset_group not in configured_assets:
-            return jsonify({'error': 'Invalid asset group'}), 404
+    # reissuance
+    reissuance_map = current_app.config['ASSET_REISSUANCE_MAP']
+    reqs = Request.query.filter(Request.wallet_id == wallet_id)
+    if reissuance_map is not None and reqs.count() == 1:
+        req = reqs.first()
+        if (req.reissuance_of is not None):
+            return jsonify({
+                'error': 'asset donation and reissuance has already been requested.'
+            }), 403
+
+        new_asset_id = reissuance_map[req.asset_id]
+        if new_asset_id is None:
+            return jsonify({
+                'error': 'reissuance for this asset is not configured'
+            }), 403
+
+        configured_assets = current_app.config["ASSETS"]
+
+        asset = None
+        group_id = None
+        for gid in configured_assets:
+            c = configured_assets[gid]
+            asset = next(iter(c['assets']), lambda a: a['asset_id'] == req.asset_id)
+            if asset is not None:
+                group_id = gid
+
+        if asset is None:
+            return jsonify({ 'error': 'Asset not configured' }), 404
+        assert group_id is not None
+
+        rgb_asset, schema = get_rgb_asset(new_asset_id)
+        if rgb_asset is None:
+            return jsonify({'error': 'Internal error getting asset data'}), 500
+
+        asset_data = {
+            'asset_id': new_asset_id,
+            'schema': schema,
+            'amount': asset['amount'],
+            'name': rgb_asset.name,
+            'precision': rgb_asset.precision,
+            'description': None,
+            'parent_id': None,
+            'ticker': None,
+        }
+        if hasattr(rgb_asset, 'description'):
+            asset_data['description'] = rgb_asset.description
+        if hasattr(rgb_asset, 'parent_id'):
+            asset_data['parent_id'] = rgb_asset.parent_id
+        if hasattr(rgb_asset, 'ticker'):
+            asset_data['ticker'] = rgb_asset.ticker
+
+        # update request on db: update status, set asset_id and amount
+        # pylint: disable=no-member
+        logger.debug('reissuing: asset_id %s, amount %s for previous request(id: %s, asset_id: %s)',
+                     new_asset_id, asset["amount"], req.idx, asset["asset_id"])
+
+        result = Request(wallet_id, blinded_utxo, configured_assets[group_id], None, None, req.idx)
+        result.status = 20
+        result.asset_group = new_asset_id
+        result.amount = asset['amount']
+        db.session.add(result)
+        db.session.commit()
+        # pylint: enable=no-member
+
+        return jsonify({'asset': asset_data})
+
     else:
-        asset_group = random.choice(list(configured_assets))
-    asset = random.choice(list(configured_assets[asset_group]['assets']))
+        # choose asset group
+        configured_assets = current_app.config["ASSETS"]
+        asset_group = request.args.get('asset_group')
+        if asset_group is not None:
+            if asset_group not in configured_assets:
+                return jsonify({'error': 'Invalid asset group'}), 404
+        else:
+            asset_group = random.choice(list(configured_assets))
+        asset = random.choice(list(configured_assets[asset_group]['assets']))
 
-    # max 1 request per asset group per wallet ID
-    reqs = Request.query.filter(Request.wallet_id == wallet_id,
-                                Request.asset_group == asset_group).count()
-    if reqs:
-        logger.debug('wallet %s already requested from group %s', wallet_id,
-                     asset_group)
-        return jsonify({
-            'error':
-            'asset donation from this group has already been requested'
-        }), 403
+        # max 1 request per asset group per wallet ID
+        reqs = Request.query.filter(Request.wallet_id == wallet_id,
+                                    Request.asset_group == asset_group).count()
+        if reqs:
+            logger.debug('wallet %s already requested from group %s', wallet_id,
+                        asset_group)
+            return jsonify({
+                'error':
+                'asset donation from this group has already been requested'
+            }), 403
 
-    # add request to db so max requests check works right away (no double req)
-    # pylint: disable=no-member
-    db.session.add(Request(wallet_id, blinded_utxo, asset_group, None, None))
-    req = Request.query.filter(Request.wallet_id == wallet_id,
-                               Request.blinded_utxo == blinded_utxo,
-                               Request.asset_group == asset_group,
-                               Request.status == 10)
-    assert req.count() == 1
-    req_idx = req.first().idx
-    db.session.commit()
-    # pylint: enable=no-member
+        # add request to db so max requests check works right away (not double req)
+        # pylint: disable=no-member
+        db.session.add(Request(wallet_id, blinded_utxo, asset_group, None, None))
+        req = Request.query.filter(Request.wallet_id == wallet_id,
+                                Request.blinded_utxo == blinded_utxo,
+                                Request.asset_group == asset_group,
+                                Request.status == 10)
+        assert req.count() == 1
+        req_idx = req.first().idx
+        db.session.commit()
+        # pylint: enable=no-member
 
-    # prepare asset data
-    rgb_asset, schema = get_rgb_asset(asset['asset_id'])
-    if rgb_asset is None:
-        return jsonify({'error': 'Internal error getting asset data'}), 500
-    asset_data = {
-        'asset_id': asset['asset_id'],
-        'schema': schema,
-        'amount': asset['amount'],
-        'name': rgb_asset.name,
-        'precision': rgb_asset.precision,
-        'description': None,
-        'parent_id': None,
-        'ticker': None,
-    }
-    if hasattr(rgb_asset, 'description'):
-        asset_data['description'] = rgb_asset.description
-    if hasattr(rgb_asset, 'parent_id'):
-        asset_data['parent_id'] = rgb_asset.parent_id
-    if hasattr(rgb_asset, 'ticker'):
-        asset_data['ticker'] = rgb_asset.ticker
+        # prepare asset data
+        rgb_asset, schema = get_rgb_asset(asset['asset_id'])
+        if rgb_asset is None:
+            return jsonify({'error': 'Internal error getting asset data'}), 500
+        asset_data = {
+            'asset_id': asset['asset_id'],
+            'schema': schema,
+            'amount': asset['amount'],
+            'name': rgb_asset.name,
+            'precision': rgb_asset.precision,
+            'description': None,
+            'parent_id': None,
+            'ticker': None,
+        }
+        if hasattr(rgb_asset, 'description'):
+            asset_data['description'] = rgb_asset.description
+        if hasattr(rgb_asset, 'parent_id'):
+            asset_data['parent_id'] = rgb_asset.parent_id
+        if hasattr(rgb_asset, 'ticker'):
+            asset_data['ticker'] = rgb_asset.ticker
 
-    # update request on db: update status, set asset_id and amount
-    # pylint: disable=no-member
-    logger.debug('setting request %s: asset_id %s, amount %s', req_idx,
-                 asset["asset_id"], asset["amount"])
-    Request.query.filter_by(idx=req_idx).update({
-        "status": 20,
-        "asset_id": asset['asset_id'],
-        "amount": asset['amount']
-    })
-    db.session.commit()
-    # pylint: enable=no-member
+        # update request on db: update status, set asset_id and amount
+        # pylint: disable=no-member
+        logger.debug('setting request %s: asset_id %s, amount %s', req_idx,
+                    asset["asset_id"], asset["amount"])
+        Request.query.filter_by(idx=req_idx).update({
+            "status": 20,
+            "asset_id": asset['asset_id'],
+            "amount": asset['amount']
+        })
+        db.session.commit()
+        # pylint: enable=no-member
 
-    return jsonify({'asset': asset_data})
+        return jsonify({'asset': asset_data})
