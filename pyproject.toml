@@ -12,6 +12,7 @@ bdkpython = "^0.26.2"
 flask-sqlalchemy = "^3.0.2"
 python = '^3.9'
 rgb-lib = '0.1.7'
+flask-migrate = "^4.0.4"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.10.1"

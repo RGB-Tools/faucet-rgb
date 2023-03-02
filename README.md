@@ -158,6 +158,7 @@ poetry run wallet-helper --address
 
 Once mnemonic and XPub have been configured, the `wallet-helper` script can
 also provide info on the wallet status, which might be useful during the
+
 initial setup:
 ```shell
 poetry run wallet-helper --unspents
@@ -180,3 +181,13 @@ poetry run issue-asset rgb121 "CTB" 0 10 10 --description "a collectible" --file
 
 Finally, complete the configuration by defining the faucet's `NAME` and the
 `ASSETS` dictionary with the issued assets.
+
+## DB Migration
+
+After specifying `DATA_DIR` in a same way explained above, run
+
+```shell
+poetry run flask --app faucet_rgb db init # create ./migrate folder. Just for the first time.
+poetry run flask --app faucet_rgb db migrate # generate migration script
+poetry run flask --app faucet_rgb db upgrade # execute migration
+```

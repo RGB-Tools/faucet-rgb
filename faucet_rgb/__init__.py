@@ -11,7 +11,7 @@ from flask import Flask, g, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import control, receive, reserve, tasks
-from .database import Request, db
+from .database import Request, db, migrate
 from .scheduler import scheduler
 from .settings import LOGGING, Config, check_config, get_app
 from .utils.wallet import init_wallet
@@ -85,6 +85,8 @@ def create_app():
     db.init_app(app)
     with app.app_context():
         db.create_all()
+
+    migrate.init_app(app, db)
 
     # register blueprints
     app.register_blueprint(control.bp)

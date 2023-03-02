@@ -1,10 +1,12 @@
 """Default application settings."""
 
 from flask_sqlalchemy import SQLAlchemy
-
+from flask_migrate import Migrate
+from .settings import get_app
 from .utils import get_current_timestamp
 
 db = SQLAlchemy()  # pylint: disable=invalid-name
+migrate = Migrate()
 
 STATUS_MAP = {
     10: "new",
