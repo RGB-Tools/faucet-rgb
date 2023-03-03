@@ -9,3 +9,5 @@
 
 # data
 /data
+docker/tmp
+docker/data

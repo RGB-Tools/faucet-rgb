@@ -180,3 +180,98 @@ poetry run issue-asset rgb121 "CTB" 0 10 10 --description "a collectible" --file
 
 Finally, complete the configuration by defining the faucet's `NAME` and the
 `ASSETS` dictionary with the issued assets.
+
+## Testing/developing with docker-compose
+
+under `docker/`, we have prepared docker-compose file for other services which `faucet-rgb`
+relies on.
+
+```sh
+cd docker
+./start_services.sh # run docker-compose and wait for services to get ready.
+cd ..
+```
+This will start 3 services in background.
+
+* bitocind (regtest)
+* electrs,
+* [rgb-proxy-server](https://github.com/grunch/rgb-proxy-server)
+
+then, configure your faucet-rgb server to work with those services.
+
+```py:config.py
+ELECTRUM_URL="tcp://localhost:50001"
+CONSIGNMENT_ENDPOINTS=["rgbhttpjsonrpc:http://localhost:3000/json-rpc"]
+```
+
+and restart the server
+
+```sh
+poetry run flask --app faucet_rgb run --no-reload 
+```
+
+### Example of requesting asset issuance in CLI from scratch.
+
+We will use `bdk-cli` and `rgblib-tool` to emulate an user's wallet.
+Beware that at the moment of writing this, rgblib-tool is still an alpha, so the API might change.
+
+```sh
+# install bdk-cli
+cargo install bdk-cli --version "0.26.0" --root "./bdk-cli" --features electrum
+alias bdk-cli=`pwd`/bdk-cli/bin/bdk-cli
+
+# install rgblib-tool
+git clone https://github.com/joemphilips/rgb-lib
+cd rgb-lib
+git checkout add_cli
+cargo run build --workspace
+alias rgblib-tool=`pwd`/rgblib-tool
+```
+
+Next, prepare wallet.
+
+```sh
+bdk_gen=$(bdk-cli key generate)
+mnemonic=$(echo $bdk_gen | jq ".mnemonic")
+xprv=$(echo $bdk_gen | jq -r ".xprv")
+bdk-cli key derive --path "m" --xprv $xprv
+# example output:
+# {
+#  "xprv": "[2bdcb12c]tprv8ZgxMBicQKsPf592PnpYhE6X6UgUaGHExnM5HH95hkcS76UJPthqMAVnkVCiByYnkxFDyHsRatmmUXHvSq5qbHN3k6eq2rNm9R8hVgN2kfR/*",
+#  "xpub": "[2bdcb12c]tpubD6NzVbkrYhZ4YYApHSV96dkdfWCQjbU9Y5wrZoBP82Qpwaj52HXRXf7evdTxcjTA1kaZ8LiLgnzGMJTWbMeLuUnuve3qssZ7eDA6uQVdbNe/*"
+#}
+
+# set generated xpub (WITHOUT fingerprint and derivation meta character at the end)
+xpub="tpubD6Nz..."
+```
+
+Next, run rgblib-related operation with the generated wallet.
+
+```sh
+# It can be anywhere as long as you specify as absolute path.
+mkdir data
+data_dir=`pwd`/data
+
+# get an bitcoin address for the rgb-wallet
+btc_addr1=$(rgblib-tool --mnemonic=$mnemonic --xpub=$xpub --network=regtest --datadir=$data_dir  --electrs=tcp://localhost:50001 native-wallet get-address)
+
+cd docker
+# send some funds with regtest bitcoind docker image
+docker-compose exec -T -u blits bitcoind bitcoin-cli -regtest sendtoaddress $(btc_addr1) 10
+# confirm
+docker-compose exec -T -u blits bitcoind bitcoin-cli -regtest generatetoaddress 3 bcrt1qjwfqxekdas249pr9fgcpxzuhmndv6dqlulh44m
+cd ..
+
+# Make sure unspent funds can be seen by rgb-lib wallet.
+/target/debug/rgblib-tool --mnemonic=$mnemonic --xpub=$xpub --network=regtest --datadir=$data_dir  --electrs=tcp://localhost:50001 list-unspents | jq .
+
+# Now let's create blinded utxo to claim RGB asset.
+blind_result=$(./target/debug/rgblib-tool --mnemonic=$mnemonic --xpub=$xpub --network=regtest --datadir=$data_dir  --electrs=tcp://localhost:50001 blind --consignment-endpoints=rgbhttpjsonrpc:http://localhost:3000/json-rpc)
+
+blinded_utxo=$(echo $blind_result | jq -r .blinded_utxo)
+
+# Now we can actually request faucet-rgb to issue an asset for the wallet.
+curl -X GET -H 'x-api-key: defaultapikey' http://localhost:5000/receive/asset/$xpub/$blinded_utxo
+
+```
+
