@@ -76,3 +76,6 @@ def send_next_batch():
         except (rgb_lib.RgbLibError.InsufficientSpendableAssets,
                 rgb_lib.RgbLibError.InsufficientTotalAssets):
             logger.error('Not enough assets, send failed')
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            # log any other error
+            logger.error('Failed to send assets %s', err)

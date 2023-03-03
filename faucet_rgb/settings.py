@@ -60,6 +60,19 @@ class Config():  # pylint: disable=too-few-public-methods
     SINGLE_ASSET_SEND = True
     # extended pubkey for the underlying Bitcoin wallet
     XPUB = None
+    # dictionary mapping new asset IDs to old ones for migration
+    # for each group, either none or all assets have to be mapped for migration
+    ASSET_MIGRATION_MAP = None
+    # set of asset groups which is not for migration from v0.9
+    # this is an internal variable that is computed from ASSET_MIGRATION_MAP
+    # and ASSETS on the startup, so you should not configure this directly
+    NON_MIGRATION_GROUPS = None
+    # cache for the current state of asset migration
+    # { group_name: { wallet_id: asset_id } }
+    # this is an internal variable that is computed from ASSET_MIGRATION_MAP
+    # and the actual migration state in the db on the startup, so you should not
+    # configure this directly
+    ASSET_MIGRATION_CACHE = {}
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods

@@ -30,7 +30,7 @@ def batch_donation():
         # refresh pending transfers
         try:
             wallet.refresh(online, None, [])
-        except Exception as err:
+        except Exception as err:  # pylint: disable=broad-exception-caught
             logger.error('error refreshing transfers: %s', repr(err))
 
         # reset status for requests left being processed to "pending"

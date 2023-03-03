@@ -84,10 +84,21 @@ def config(wallet_id):
 
     assets = current_app.config["ASSETS"]
     groups = {}
+    mig_cache = current_app.config['ASSET_MIGRATION_CACHE']
     for group_name, group_data in assets.items():
-        reqs = Request.query.filter(Request.wallet_id == wallet_id,
-                                    Request.asset_group == group_name).count()
-        requests_left = 1 if not reqs else 0
+        requests_left = 0
+        is_mig_group = mig_cache.get(group_name) is not None
+        if is_mig_group:
+            user_is_in_mig_group = mig_cache[group_name].get(
+                wallet_id) is not None
+            if user_is_in_mig_group:
+                requests_left = 1
+        else:
+            reqs = Request.query.filter(
+                Request.wallet_id == wallet_id,
+                Request.asset_group == group_name).count()
+            requests_left = 1 if not reqs else 0
+
         groups[group_name] = {
             'label': group_data['label'],
             'requests_left': requests_left,
@@ -112,7 +123,7 @@ def request_rgb_asset(wallet_id, blinded_utxo):
 
     # check wallet_id is a valid XPub
     if not is_xpub_valid(wallet_id):
-        return jsonify({'error': 'invalied wallet ID'}), 403
+        return jsonify({'error': 'invalid wallet ID'}), 403
 
     # choose asset group
     configured_assets = current_app.config["ASSETS"]
@@ -120,20 +131,47 @@ def request_rgb_asset(wallet_id, blinded_utxo):
     if asset_group is not None:
         if asset_group not in configured_assets:
             return jsonify({'error': 'Invalid asset group'}), 404
-    else:
-        asset_group = random.choice(list(configured_assets))
+    asset = None
+    if asset_group is None:
+        # chose randomly from non-migration groups
+        asset_group = random.choice(
+            list(current_app.config['NON_MIGRATION_GROUPS']))
     asset = random.choice(list(configured_assets[asset_group]['assets']))
 
-    # max 1 request per asset group per wallet ID
-    reqs = Request.query.filter(Request.wallet_id == wallet_id,
-                                Request.asset_group == asset_group).count()
-    if reqs:
-        logger.debug('wallet %s already requested from group %s', wallet_id,
-                     asset_group)
-        return jsonify({
-            'error':
-            'asset donation from this group has already been requested'
-        }), 403
+    mig = current_app.config['ASSET_MIGRATION_CACHE']
+    is_mig_request = asset_group in mig
+    if is_mig_request:
+        # check if wallet is entitled to an asset migration and if so detect
+        # the correct asset to send
+        asset = mig[asset_group].get(wallet_id)
+        if asset is None:
+            return jsonify({
+                'error':
+                f'wallet has no right to request an asset from group {asset_group}'
+            }), 403
+        # remove the user (and possibly the whole group) from migration cache
+        del mig[asset_group][wallet_id]
+        if not mig[asset_group]:
+            del mig[asset_group]
+    else:
+        # max 1 request per asset group per wallet ID
+        reqs = Request.query.filter(
+            Request.wallet_id == wallet_id,
+            Request.asset_group == asset_group).count()
+        if reqs:
+            logger.debug('wallet %s already requested from group %s',
+                         wallet_id, asset_group)
+            return jsonify({
+                'error':
+                'asset donation from this group has already been requested'
+            }), 403
+
+    return _request_rgb_asset_core(wallet_id, blinded_utxo, asset_group, asset,
+                                   logger)
+
+
+def _request_rgb_asset_core(wallet_id, blinded_utxo, asset_group, asset,
+                            logger):
 
     # add request to db so max requests check works right away (no double req)
     # pylint: disable=no-member

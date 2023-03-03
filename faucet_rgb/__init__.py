@@ -1,6 +1,6 @@
 """Faucet Flask app initialization and configuration."""
 
-import logging
+import itertools
 import os
 import pathlib
 import sys
@@ -8,6 +8,8 @@ import uuid
 from logging.config import dictConfig
 
 from flask import Flask, g, request
+from flask_apscheduler import STATE_STOPPED
+from sqlalchemy import and_, not_
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import control, receive, reserve, tasks
@@ -32,9 +34,127 @@ def print_assets_and_quit(assets, asset_id):
     sys.exit(1)
 
 
-def create_app():
-    """Create and configure the app."""
-    app = get_app(__name__)
+def validate_migration_map(app):
+    """Ensure the sanity of `ASSET_MIGRATION_MAP`
+
+    New asset IDs in `ASSET_MIGRATION_MAP` (if any) must also be defined in the
+    `ASSETS` section.
+    """
+    mig_map = app.config['ASSET_MIGRATION_MAP']
+    if mig_map is None:
+        app.config['NON_MIGRATION_GROUPS'] = set(app.config['ASSETS'])
+        return
+    groups_to = set()
+    for asset_id in mig_map:
+        containing_group = None
+        for group_name, group_data in app.config['ASSETS'].items():
+            for asset in group_data['assets']:
+                if asset['asset_id'] == asset_id:
+                    containing_group = group_name
+        if containing_group is None:
+            print(f'error in ASSET_MIGRATION_MAP! asset {asset_id} is not '
+                  'defined in any group!')
+            sys.exit(1)
+
+        groups_to.add(containing_group)
+
+    # check all assets in migration groups are defined as migration destination
+    dest_asset_ids = mig_map.keys()
+    for group_to in groups_to:
+        for asset in app.config['ASSETS'][group_to]['assets']:
+            asset_id = asset['asset_id']
+            if not asset_id in dest_asset_ids:
+                print(f'asset ID {asset_id} is not defined as a migration '
+                      'destination while other assets in the same group are!')
+                sys.exit(1)
+    app.config['NON_MIGRATION_GROUPS'] = set(app.config["ASSETS"]) - groups_to
+
+
+def _get_group_and_asset_from_id(app, asset_id):
+    for group_name, group_data in app.config['ASSETS'].items():
+        for asset in group_data['assets']:
+            if asset['asset_id'] == asset_id:
+                return (group_name, asset)
+    raise KeyError(asset_id)
+
+
+def _get_all_requests_waiting_for_migration(rev_mig_map):
+    """Gather all requests which haven't completed migration."""
+    reqs = Request.query.filter(
+        Request.status == 40  # consider only "served" status
+    ).order_by(Request.wallet_id).all()
+    reqs_waiting_for_migration = []
+    for _, same_wallet_requests in itertools.groupby(reqs,
+                                                     lambda r: r.wallet_id):
+        it1, it2 = itertools.tee(same_wallet_requests, 2)
+        for req in it1:
+            new_asset_id = rev_mig_map.get(req.asset_id)
+            if new_asset_id is None:
+                continue
+            wallet_migration_complete = any(r.asset_id == new_asset_id
+                                            for r in it2)
+            if not wallet_migration_complete:
+                reqs_waiting_for_migration.append(req)
+    return reqs_waiting_for_migration
+
+
+def create_user_migration_cache(app):
+    """Create `ASSET_MIGRATION_CACHE`, which is used later to perform migration.
+
+    See settings.py::Config for more details about the cache.
+    """
+    mig_map = app.config['ASSET_MIGRATION_MAP']
+    if mig_map is None:
+        return
+
+    with app.app_context():
+        rev_mig_map = {v: k for k, v in mig_map.items()}
+
+        reqs_waiting_for_migration = _get_all_requests_waiting_for_migration(
+            rev_mig_map)
+
+        # build asset migration cache
+        mig_cache = {}
+        for req in reqs_waiting_for_migration:
+            new_asset_id = rev_mig_map.get(req.asset_id)
+            if new_asset_id is not None:
+                group, asset = _get_group_and_asset_from_id(app, new_asset_id)
+                if group not in mig_cache:
+                    mig_cache[group] = {}
+                if req.wallet_id not in mig_cache[group]:
+                    mig_cache[group][req.wallet_id] = asset
+        app.config['ASSET_MIGRATION_CACHE'] = mig_cache
+
+        # update pending requests for old assets
+        for req in Request.query.filter(
+                and_(Request.status != 40,
+                     Request.asset_id.in_(rev_mig_map.keys()))):
+            # if there is a pending request for an old asset,
+            # update it with the new asset_id
+            req.asset_id = rev_mig_map[req.asset_id]
+            db.session.add(req)
+        db.session.commit()
+
+        # log the current migration state
+        if len(mig_cache):
+            remaining = len(set().union(*mig_cache.values()))
+            app.logger.info(
+                f"{remaining} wallets are still not fully migrated.")
+        else:
+            app.logger.warning(
+                "All wallets are migrated! "
+                "You can drop `ASSET_MIGRATION_MAP` from config now.")
+
+
+def create_app(custom_get_app=None, do_init_wallet=True):
+    """Create and configure the app.
+
+    Args:
+        custom_get_app: Function that returns a configured app.
+            Used for custom configuration from the test code.
+        do_init_wallet: Set to False to skip wallet initialization.
+    """
+    app = get_app(__name__) if custom_get_app is None else custom_get_app()
 
     # configure data files to go inside the data dir
     log_dir = os.path.sep.join([app.config['DATA_DIR'], 'logs'])
@@ -52,6 +172,8 @@ def create_app():
     LOGGING['handlers']['file']['level'] = app.config['LOG_LEVEL_FILE']
     dictConfig(LOGGING)
 
+    validate_migration_map(app)
+
     # pylint: disable=no-member
     @app.before_request
     def log_request():
@@ -67,9 +189,11 @@ def create_app():
     # pylint: enable=no-member
 
     # initialize the wallet
-    app.config['ONLINE'], app.config['WALLET'] = init_wallet(
-        app.config['ELECTRUM_URL'], app.config['XPUB'], app.config['MNEMONIC'],
-        app.config['DATA_DIR'], app.config['NETWORK'])
+    if do_init_wallet:
+        app.config['ONLINE'], app.config['WALLET'] = init_wallet(
+            app.config['ELECTRUM_URL'], app.config['XPUB'],
+            app.config['MNEMONIC'], app.config['DATA_DIR'],
+            app.config['NETWORK'])
 
     # ensure all the configured assets are available
     wallet = app.config['WALLET']
@@ -86,6 +210,8 @@ def create_app():
     with app.app_context():
         db.create_all()
 
+    create_user_migration_cache(app)
+
     # register blueprints
     app.register_blueprint(control.bp)
     app.register_blueprint(receive.bp)
@@ -99,15 +225,17 @@ def create_app():
                                 x_host=1,
                                 x_prefix=1)
 
-    # intialize scheduler
-    scheduler.init_app(app)
-    scheduler.add_job(
-        func=tasks.batch_donation,
-        trigger='interval',
-        seconds=app.config['SCHEDULER_INTERVAL'],
-        id='batch_donation',
-        replace_existing=True,
-    )
-    scheduler.start()
+    # initialize the scheduler, only if not already running
+    # this is necessary when re-starting the app from tests
+    if scheduler.state == STATE_STOPPED:
+        scheduler.init_app(app)
+        scheduler.add_job(
+            func=tasks.batch_donation,
+            trigger='interval',
+            seconds=app.config['SCHEDULER_INTERVAL'],
+            id='batch_donation',
+            replace_existing=True,
+        )
+        scheduler.start()
 
     return app

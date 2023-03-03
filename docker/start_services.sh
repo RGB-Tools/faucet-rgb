@@ -1,15 +1,13 @@
 #!/bin/bash
 set -eu
 
-if which docker-compose >/dev/null; then
-    COMPOSE_CMD="docker-compose"
-elif docker compose >/dev/null; then
-    COMPOSE_CMD="docker compose"
-else
-    echo "could not locate docker compose command or plugin"
+COMPOSE="docker compose"
+if ! $COMPOSE >/dev/null; then
+    echo "could not call docker compose (hint: install docker compose plugin)"
     exit 1
 fi
-COMPOSE="$COMPOSE_CMD -f docker-compose.yml"
+
+COMPOSE="$COMPOSE -f docker-compose.yml"
 TEST_DIR="./tmp"
 
 $COMPOSE down -v

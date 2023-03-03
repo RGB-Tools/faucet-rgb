@@ -11,3 +11,5 @@
 /data
 docker/tmp
 docker/data
+
+test_data

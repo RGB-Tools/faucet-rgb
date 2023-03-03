@@ -59,6 +59,89 @@ ASSETS = {
 See the `Config` class in the `faucet_rgb/settings.py` file for details on
 configuration variables.
 
+### Asset migration
+
+Wallets that received assets based on RGB v0.9 will lose them upon upgrading
+to RGB v0.10. Asset migration is a feature that allows such wallets to request
+an asset from the same asset group and receive the new version of the previous
+asset, re-issued with v0.10.
+
+By default, when a request for assets from a specific group is received, if
+there is no previous request from the same wallet and group, a random asset from
+the selected group is sent, otherwise no asset is sent and an error is returned.
+This logic is still applied for asset groups that are not part of the migration
+configuration.
+
+Configuring `ASSET_MIGRATION_MAP`, asset groups that are included in the
+configuration are no more part of the default logic. Instead, when a request
+for assets from one such group is received, it will be checked against the
+migration map. If the wallet ID matches a previous request for a v0.9 asset
+being migrated, the new asset is sent, just once. Further requests by the same
+wallet from the same group are denied.
+
+Requesting from non-migration groups works as before, sending a random asset
+from the selected group. Requesting with no group specified works as before,
+sending a random asset from a random non-migration group.
+
+For example, supposing the `ASSET` declaration above was done for RGB v0.9
+assets, after upgrading to v0.10, re-issuing the assets and including a new
+group `group_3` (which would operate with the default logic), it would become
+something like:
+
+```python
+ASSETS = {
+    'group_1': {
+        'label': 'asset group one',
+        'assets': [{
+            'asset_id': 'Nixon...1oA',
+            'amount': 1,
+        }, {
+            'asset_id': 'Visible...kEh',
+            'amount': 7,
+        }]
+    },
+    'group_2': {
+        'label': 'asset group two',
+        'assets': [{
+            'asset_id': 'Express...uwg',
+            'amount': 42,
+        }, {
+            'asset_id': 'Legacy...QBX',
+            'amount': 4,
+        }]
+    },
+    'group_3': {
+        'label': 'asset group three',
+        'assets': [{
+            'asset_id': 'Nato...Vnx',
+            'amount': 3,
+        }, {
+            'asset_id': 'Nadia...mXL',
+            'amount': 11,
+        }]
+    },
+}
+```
+
+and the following migration map would allow migrating the old assets in
+`group_1` and `group_2`:
+
+```python
+ASSET_MIGRATION_MAP = {
+    'Nixon...1oA': 'rgb1aaa...',
+    'Visible...kEh': 'rgb1bbb...',
+    'Express...uwg': 'rgb1ccc...',
+    'Legacy...QBX': 'rgb1ddd...',
+}
+```
+
+With this configuration, an example request for an asset from `group_1` from a
+wallet that was previously sent asset `rgb1aaa` would trigger the sending of
+asset `Nixon...1oA`
+
+Note: when declaring `ASSET_MIGRATION_MAP`, all assets in a group need to be
+defined, partial migration for a group is not supported.
+
 ## Authentication
 
 Endpoints require authentication via an API key, to be sent in the `X-Api-Key`
@@ -88,9 +171,13 @@ The available endpoints are:
 - `/reserve/top_up_rgb` returns a blinded UTXO for the faucet's RGB wallet
 - `/receive/asset/<wallet_id>/<blinded_utxo>?asset_group=<asset_group>` sends
   the configured amount of a random asset in optional group `<asset_group>` to
-  `<blinded_utxo>`; if no group is provided, a random one is chosen;
+  `<blinded_utxo>`; if no `asset_group` is provided, a random asset from a
+  non-migration group is chosen
 - `/receive/config/<wallet_id>` requests the faucet's configuration (name +
-  groups)
+  groups), and the number of requests that are allowed for each group (only 1 or
+  0 are possible at the moment)
+  - `1` if the user can request sending from this group (including migration)
+  - `0` if the user cannot request from this group anymore
 - `/receive/requests?asset_id=<asset_id>&blinded_utxo=<blinded_utco>&wallet_id=<wallet_id>`
   returns a list of received asset requests; can be filtered for `<asset_id>`,
   `<blinded_utxo>` or `<wallet_id>` via query parameters
@@ -185,7 +272,7 @@ Finally, complete the configuration by defining the faucet's `NAME` and the
 
 ### Setup
 
-The `docker` directory contains a docker-compose to run local copies of the
+The `docker` directory contains a docker compose to run local copies of the
 services required by the faucet to operate, configured for the regtest network.
 
 The `start_services.sh` script is also included to start them:
@@ -209,8 +296,8 @@ CONSIGNMENT_ENDPOINTS=["rgbhttpjsonrpc:http://localhost:3000/json-rpc"]
 Funding wallets in the regtest environment can be done using bitcoind directly:
 ```sh
 cd docker
-docker-compose exec -T -u blits bitcoind bitcoin-cli -regtest sendtoaddress <address> 1
-docker-compose exec -T -u blits bitcoind bitcoin-cli -regtest -generate 1
+docker compose exec -T -u blits bitcoind bitcoin-cli -regtest sendtoaddress <address> 1
+docker compose exec -T -u blits bitcoind bitcoin-cli -regtest -generate 1
 cd ..
 ```
 
@@ -223,7 +310,11 @@ funding part (stop before issuing assets).
 This separate instance will be used as an RGB-enabled wallet to request assets
 from the faucet.
 
+To tear down the services, just run `docker compose down -v` in the `docker/`
+directory.
+
 ### Example asset request
+
 Generate a blinded UTXO with the request wallet:
 ```sh
 poetry run wallet-helper --blind
@@ -235,6 +326,21 @@ generated blinded UTXO:
 curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/asset/<xpub>/<blinded_utxo>
 ```
 
+### Integration test
+
+Automated integration testing is supported via pytest.
+
+At the moment, running all tests in parallel is not possible as the migration
+test needs to pause the scheduler to achieve the desired state.
+
+To execute tests, first launch the services via docker compose, then run a
+specific test with the following command:
+
+```sh
+poetry run pytest <path/to/testfile.py>
+```
+
+Note: output capture can be disabled by adding the `-s` pytest option.
 
 [rgb-proxy-server]: https://github.com/grunch/rgb-proxy-server
 [Initial setup example]: #initial-setup-example
