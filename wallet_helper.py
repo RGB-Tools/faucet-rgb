@@ -28,6 +28,9 @@ def entrypoint():
     parser.add_argument('--assets',
                         action='store_true',
                         help='print current assets from RGB wallet')
+    parser.add_argument('--blind',
+                        action='store_true',
+                        help='generate and print a new blinded UTXO')
     parser.add_argument('--unspents',
                         action='store_true',
                         help='print wallet unspents')
@@ -63,6 +66,32 @@ def entrypoint():
         assets = wallet.list_assets([])
         _print_assets('RGB20', assets.rgb20)
         _print_assets('RGB121', assets.rgb121)
+
+    if args.blind:
+        try:
+            count = wallet.create_utxos(online, True, 1, None,
+                                        app.config['FEE_RATE'])
+            if count > 0:
+                print(f'{count} new UTXOs created')
+        except rgb_lib.RgbLibError.AllocationsAlreadyAvailable:
+            pass
+        except rgb_lib.RgbLibError.InsufficientBitcoins as err:
+            print((f'Insufficient funds ({err.available} available sats).\n'
+                   f'Funds can be sent to the following address'),
+                  wallet.get_address())
+            sys.exit(1)
+        try:
+            blind_data = wallet.blind(
+                None,
+                None,
+                None,
+                consignment_endpoints=[
+                    'rgbhttpjsonrpc:http://localhost:3000/json-rpc'
+                ])
+            print(f'blinded_utxo: {blind_data.blinded_utxo}')
+        except rgb_lib.RgbLibError as err:
+            print(f'Error generating blind data: {err}')
+            sys.exit(1)
 
     if args.unspents:
         rp('\nUnspents:')
