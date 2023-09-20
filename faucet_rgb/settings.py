@@ -65,10 +65,10 @@ class Config():  # pylint: disable=too-few-public-methods
     ASSET_MIGRATION_MAP = None
     # set of asset groups which is not for migration from v0.9
     # this is an internal variable that is computed from ASSET_MIGRATION_MAP
-    # and ASSETS on the startup, so you should not configure this directly
+    # and ASSETS on startup, so you should not configure this directly
     NON_MIGRATION_GROUPS = None
     # cache for the current state of asset migration
-    # { group_name: { wallet_id: asset_id } }
+    # { group_name: { wallet_id: asset } }
     # this is an internal variable that is computed from ASSET_MIGRATION_MAP
     # and the actual migration state in the db on the startup, so you should not
     # configure this directly

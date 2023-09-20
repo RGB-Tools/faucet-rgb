@@ -1,12 +1,12 @@
 """Wallet utils module."""
 
+import string
 import sys
+from hashlib import sha256
 
 import bdkpython as bdk
 import rgb_lib
 from flask import current_app
-
-from faucet_rgb.utils import get_logger
 
 
 def init_wallet(electrum_url, xpub, mnemonic, data_dir, network):
@@ -62,18 +62,16 @@ def get_unspent_dict(wallet, online):
     return unspent_dict
 
 
-def is_xpub_valid(xpub):
-    """Return if the given XPub is valid or not."""
-    logger = get_logger(__name__)
+def is_walletid_valid(wallet_id):
+    """Return if the given wallet ID is valid or not."""
     is_valid = False
-    try:
-        network = _get_bdk_network()
-        descriptor = bdk.Descriptor(f'wpkh({xpub})', network)
-        bdk.Wallet(descriptor=descriptor,
-                   change_descriptor=None,
-                   network=network,
-                   database_config=bdk.DatabaseConfig.MEMORY())
+    # check it's a SHA256-looking string
+    allowed_chars = set(string.digits + string.ascii_lowercase[:6])
+    if len(wallet_id) == 64 and set(wallet_id.lower()) <= allowed_chars:
         is_valid = True
-    except Exception as err:  # pylint: disable=broad-except
-        logger.error('error checking xpub: %s', err)
     return is_valid
+
+
+def get_sha256_hex(input_string):
+    """Return the hex digest of the SHA256 for the given string."""
+    return sha256(input_string.encode('utf-8')).hexdigest()

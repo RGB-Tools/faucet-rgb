@@ -16,7 +16,7 @@ from . import control, receive, reserve, tasks
 from .database import Request, db
 from .scheduler import scheduler
 from .settings import LOGGING, Config, check_config, get_app
-from .utils.wallet import init_wallet
+from .utils.wallet import get_sha256_hex, init_wallet
 
 
 def print_assets_and_quit(assets, asset_id):
@@ -121,8 +121,11 @@ def create_user_migration_cache(app):
                 group, asset = _get_group_and_asset_from_id(app, new_asset_id)
                 if group not in mig_cache:
                     mig_cache[group] = {}
-                if req.wallet_id not in mig_cache[group]:
-                    mig_cache[group][req.wallet_id] = asset
+                # only consider (old) requests with xPub wallet ID
+                if len(req.wallet_id) > 64:
+                    wallet_id = get_sha256_hex(req.wallet_id)
+                    if wallet_id not in mig_cache[group]:
+                        mig_cache[group][wallet_id] = asset
         app.config['ASSET_MIGRATION_CACHE'] = mig_cache
 
         # update pending requests for old assets
