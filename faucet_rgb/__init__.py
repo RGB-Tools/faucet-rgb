@@ -2,31 +2,30 @@
 
 import itertools
 import os
-import pathlib
 import sys
 import uuid
 from logging.config import dictConfig
 
-from flask import Flask, g, request
+from flask import g, request
 from flask_apscheduler import STATE_STOPPED
-from sqlalchemy import and_, not_
+from sqlalchemy import and_
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import control, receive, reserve, tasks
 from .database import Request, db
 from .scheduler import scheduler
-from .settings import LOGGING, Config, check_config, get_app
+from .settings import LOGGING, check_config, get_app
 from .utils.wallet import get_sha256_hex, init_wallet
 
 
 def print_assets_and_quit(assets, asset_id):
     """Print provided assets and asset ID, then terminate the process."""
-    print('List of available rgb20 assets:')
-    for asset in assets.rgb20:
+    print('List of available NIA assets:')
+    for asset in assets.nia:
         print(' -', asset.asset_id, asset.ticker, asset.name, asset.precision,
               asset.balance)
-    print('List of available rgb121 assets:')
-    for asset in assets.rgb121:
+    print('List of available CFA assets:')
+    for asset in assets.cfa:
         print(' -', asset.asset_id, asset.name, asset.description,
               asset.precision, asset.parent_id, asset.data_paths,
               asset.balance)
@@ -63,7 +62,7 @@ def validate_migration_map(app):
     for group_to in groups_to:
         for asset in app.config['ASSETS'][group_to]['assets']:
             asset_id = asset['asset_id']
-            if not asset_id in dest_asset_ids:
+            if asset_id not in dest_asset_ids:
                 print(f'asset ID {asset_id} is not defined as a migration '
                       'destination while other assets in the same group are!')
                 sys.exit(1)
@@ -181,12 +180,12 @@ def create_app(custom_get_app=None, do_init_wallet=True):
     @app.before_request
     def log_request():
         g.request_id = uuid.uuid4()
-        app.logger.info(
-            f'> {g.get("request_id")} {request.method} {request.full_path}')
+        app.logger.info('> %s %s %s', g.get("request_id"), request.method,
+                        request.full_path)
 
     @app.after_request
     def log_response(response):
-        app.logger.info(f'< {g.get("request_id")} {response.status}')
+        app.logger.info('< %s %s', g.get("request_id"), response.status)
         return response
 
     # pylint: enable=no-member
@@ -201,7 +200,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
     # ensure all the configured assets are available
     wallet = app.config['WALLET']
     assets = wallet.list_assets([])
-    asset_ids = [asset.asset_id for asset in assets.rgb20 + assets.rgb121]
+    asset_ids = [asset.asset_id for asset in assets.nia + assets.cfa]
     for _, data in app.config['ASSETS'].items():
         for asset in data['assets']:
             asset_id = asset['asset_id']

@@ -19,7 +19,7 @@ def assets():
     wallet = current_app.config["WALLET"]
     wallet.refresh(online, None, [])
     asset_list = wallet.list_assets([])
-    asset_dict = utils.get_asset_dict(asset_list.rgb20 + asset_list.rgb121)
+    asset_dict = utils.get_asset_dict(asset_list.nia + asset_list.cfa)
     return jsonify({'assets': asset_dict})
 
 
@@ -79,7 +79,7 @@ def list_transfers():
     wallet = current_app.config["WALLET"]
     wallet.refresh(online, None, [])
     asset_list = wallet.list_assets([])
-    asset_ids = [a.asset_id for a in asset_list.rgb20 + asset_list.rgb121]
+    asset_ids = [a.asset_id for a in asset_list.nia + asset_list.cfa]
     transfers = []
     for asset_id in asset_ids:
         asset_transfers = wallet.list_transfers(asset_id)

@@ -11,7 +11,7 @@ Flask-APScheduler = "^1.12.4"
 bdkpython = "^0.29.0"
 flask-sqlalchemy = "^3.0.5"
 python = '^3.9'
-rgb-lib = '0.1.9'
+rgb-lib = '0.2.0a4'
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"

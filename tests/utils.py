@@ -8,9 +8,12 @@ import time
 import rgb_lib
 from flask import Flask
 
-from faucet_rgb import create_app as create_faucet_app
+from faucet_rgb import create_app
 from faucet_rgb import utils
+from faucet_rgb.database import Request
+from faucet_rgb.database import db
 from faucet_rgb.settings import Config
+from faucet_rgb.utils.wallet import get_sha256_hex
 
 BITCOIN_ARG = [
     "docker",
@@ -25,7 +28,7 @@ BITCOIN_ARG = [
     "bitcoin-cli",
     "-regtest",
 ]
-CONSIGNMENT_ENDPOINTS = ["rgbhttpjsonrpc:http://localhost:3000/json-rpc"]
+CONSIGNMENT_ENDPOINTS = ["rpc://localhost:3000/json-rpc"]
 ELECTRUM_URL = "tcp://localhost:50001"
 NETWORK = "regtest"
 USER_HEADERS = {"x-api-key": Config.API_KEY}
@@ -110,11 +113,38 @@ def check_requests_left(app, xpub, group_to_requests_left):
         group_to_requests_left (dict): (asset group) => (expected requests_left)
     """
     client = app.test_client()
-    resp = client.get(f"/receive/config/{xpub}", headers=USER_HEADERS)
+    wallet_id = get_sha256_hex(xpub)
+    resp = client.get(f"/receive/config/{wallet_id}", headers=USER_HEADERS)
     assert resp.status_code == 200
     for group, expected in group_to_requests_left.items():
         actual = resp.json["groups"][group]["requests_left"]
         assert expected == actual
+
+
+def add_previous_request(app, user, asset_group, status):
+    """Add a request to DB to simulate a previous request."""
+    amount = app.config['ASSETS'][asset_group]['assets'][0]['amount']
+    asset_id = app.config['ASSETS'][asset_group]['assets'][0]['asset_id']
+    wallet_id = user["xpub"]
+    wallet = user["wallet"]
+    _ = wallet.create_utxos(user["online"], True, 1, None,
+                            app.config["FEE_RATE"])
+    blind_data = wallet.blind_receive(None, None, None,
+                                      app.config["CONSIGNMENT_ENDPOINTS"], 1)
+    blinded_utxo = blind_data.recipient_id
+    with app.app_context():
+        db.session.add(
+            Request(wallet_id, blinded_utxo, asset_group, asset_id, amount))
+        req = Request.query.filter(Request.wallet_id == wallet_id,
+                                   Request.blinded_utxo == blinded_utxo,
+                                   Request.asset_group == asset_group,
+                                   Request.status == 10)
+        assert req.count() == 1
+        req_idx = req.first().idx
+        Request.query.filter_by(idx=req_idx).update({
+            "status": status,
+        })
+        db.session.commit()
 
 
 def check_receive_asset(app,
@@ -124,18 +154,16 @@ def check_receive_asset(app,
                         expected_asset_id_list=None):
     """Check the /receive/asset endpoint."""
     xpub = user["xpub"]
+    wallet_id = get_sha256_hex(xpub)
     wallet = user["wallet"]
     _ = wallet.create_utxos(user["online"], True, 1, None,
                             app.config["FEE_RATE"])
-    blind_data = wallet.blind(
-        None,
-        None,
-        None,
-        consignment_endpoints=app.config["CONSIGNMENT_ENDPOINTS"])
+    blind_data = wallet.blind_receive(None, None, None,
+                                      app.config["CONSIGNMENT_ENDPOINTS"], 1)
     group_query = "" if group_to_request is None else f"?asset_group={group_to_request}"
     client = app.test_client()
     resp = client.get(
-        f"/receive/asset/{xpub}/{blind_data.blinded_utxo}{group_query}",
+        f"/receive/asset/{wallet_id}/{blind_data.recipient_id}{group_query}",
         headers=USER_HEADERS,
     )
     assert resp.status_code == expected_status_code
@@ -177,28 +205,27 @@ def _issue_asset(app):
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
     wallet.create_utxos(online, True, None, None, app.config["FEE_RATE"])
-    rgb_20 = wallet.issue_asset_rgb20(
+    nia = wallet.issue_asset_nia(
         online,
         ticker=f"TFT{_ASSET_COUNT}",
-        name=f"test asset for rgb20 ({_ASSET_COUNT})",
+        name=f"test NIA asset ({_ASSET_COUNT})",
         precision=0,
         amounts=[1000, 1000],
     )
-    rgb_121 = wallet.issue_asset_rgb121(
+    cfa = wallet.issue_asset_cfa(
         online,
-        name=f"asset-rgb121-{_ASSET_COUNT}",
-        description=f"test asset for rgb121 ({_ASSET_COUNT})",
+        name=f"test CFA asset ({_ASSET_COUNT})",
+        description="a CFA asset for testing",
         precision=0,
         amounts=[1000, 1000],
-        parent_id=None,
         file_path=None,
     )
 
-    return rgb_20.asset_id, rgb_121.asset_id
+    return nia.asset_id, cfa.asset_id
 
 
 def prepare_assets(app, group_name="group_1"):
-    """Issue (rgb20, rgb121) asset pair and set the config for the app.
+    """Issue (NIA, CFA) asset pair and set the config for the app.
 
     Issue 1000 units for each asset, and the amount to send users is 100.
 
@@ -217,22 +244,34 @@ def prepare_assets(app, group_name="group_1"):
     return app
 
 
-def _get_test_app(name, custom_app_prep):
+def _get_test_base_app():
+    name = get_test_name()
     app = Flask(name, instance_relative_config=True)
 
+    # base configutation
     app.config.from_object(Config)
     app.config["NAME"] = name
-
     app.config["DATA_DIR"] = get_test_datadir()
 
-    # settings which usually user defines by themselves
+    # settings for regtest test environment
     app.config["CONSIGNMENT_ENDPOINTS"] = CONSIGNMENT_ENDPOINTS
     app.config["ELECTRUM_URL"] = ELECTRUM_URL
     app.config["NETWORK"] = NETWORK
 
+    # scheduler settings (fast processing)
+    app.config["MIN_REQUESTS"] = 1
+    app.config["SCHEDULER_INTERVAL"] = 5
+
+    return app
+
+
+def _prepare_test_app(custom_app_prep):
+    app = _get_test_base_app()
+
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
 
+    app.config["FINGERPRINT"] = keys.xpub_fingerprint
     app.config["MNEMONIC"] = keys.mnemonic
     app.config["XPUB"] = keys.xpub
 
@@ -244,17 +283,36 @@ def _get_test_app(name, custom_app_prep):
     return app
 
 
-def create_test_app(name, custom_app_prep):
+def _reconfigure_test_app(config):
+    app = _get_test_base_app()
+
+    # re-configure wallet and assets
+    app.config["FINGERPRINT"] = config['FINGERPRINT']
+    app.config["MNEMONIC"] = config['MNEMONIC']
+    app.config["XPUB"] = config['XPUB']
+    app.config["WALLET"] = config['WALLET']
+    app.config["ASSETS"] = config['ASSETS']
+    app.config["ASSET_MIGRATION_MAP"] = config['ASSET_MIGRATION_MAP']
+
+    return app
+
+
+def create_test_app(config=None, custom_app_prep=None):
     """Returns a configured Flask app for the test.
 
     Args:
-        name (str): Name of the app.
-        custom_app_prep (function): Function which will be run after the app
-            initialization. It must issue assets and set config for the app.
+        config: if provided, use it to reconfigure the app
+        custom_app_prep (function): if provided, run it after the app
+            initialization. It must issue assets and configure for the app.
             Takes an app as an argument and returns the updated app.
     """
 
-    def _get_app():
-        return _get_test_app(name, custom_app_prep)
+    def _custom_get_app():
+        if config:
+            return _reconfigure_test_app(config)
+        elif custom_app_prep:
+            return _prepare_test_app(custom_app_prep)
+        else:
+            raise RuntimeError("either config or custom_app_prep expected")
 
-    return create_faucet_app(_get_app, False)
+    return create_app(_custom_get_app, False)

@@ -64,8 +64,8 @@ def entrypoint():
 
     if args.assets:
         assets = wallet.list_assets([])
-        _print_assets('RGB20', assets.rgb20)
-        _print_assets('RGB121', assets.rgb121)
+        _print_assets('NIA', assets.nia)
+        _print_assets('CFA', assets.cfa)
 
     if args.blind:
         try:
@@ -81,14 +81,9 @@ def entrypoint():
                   wallet.get_address())
             sys.exit(1)
         try:
-            blind_data = wallet.blind(
-                None,
-                None,
-                None,
-                consignment_endpoints=[
-                    'rgbhttpjsonrpc:http://localhost:3000/json-rpc'
-                ])
-            print(f'blinded_utxo: {blind_data.blinded_utxo}')
+            blind_data = wallet.blind_receive(
+                None, None, None, ['rpc://localhost:3000/json-rpc'], 1)
+            print(f'blinded_utxo: {blind_data.recipient_id}')
         except rgb_lib.RgbLibError as err:
             print(f'Error generating blind data: {err}')
             sys.exit(1)

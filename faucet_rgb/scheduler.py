@@ -52,7 +52,7 @@ def send_next_batch():
                 if req.asset_id == asset_id:
                     recipient_list.append(
                         rgb_lib.Recipient(
-                            req.blinded_utxo, req.amount,
+                            req.blinded_utxo, None, req.amount,
                             current_app.config['CONSIGNMENT_ENDPOINTS']))
             recipient_map[asset_id] = recipient_list
 
@@ -66,7 +66,7 @@ def send_next_batch():
 
             # send assets
             txid = cfg['wallet'].send(cfg['online'], recipient_map, True,
-                                      cfg['fee_rate'])
+                                      cfg['fee_rate'], 1)
             logger.info('batch donation sent with TXID: %s', txid)
 
             # update status for served requests

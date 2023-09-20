@@ -28,10 +28,11 @@ def init_wallet(electrum_url, xpub, mnemonic, data_dir, network):
                 data_dir,
                 bitcoin_network,
                 rgb_lib.DatabaseType.SQLITE,
+                1,
                 xpub,
                 mnemonic,
             ), )
-    except rgb_lib.RgbLibError as err:
+    except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception
         print('rgb_lib error:', err)
         raise RuntimeError('Faucet unavailable') from err
     online = wallet.go_online(False, electrum_url)

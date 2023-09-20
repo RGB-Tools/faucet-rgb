@@ -18,14 +18,14 @@ def fixture_get_app():
     """Fixture to get running faucet_rgb app with default settings.
 
     DATA_DIR for the app is configured as `test_data/<method_name>`.
-    By default, both rgb20 and rgb121 assets are issued (1 asset for each type)
+    By default, both NIA and CFA assets are issued (1 asset for each type)
     with the group name "group_1"
 
     Args:
         custom_app_prep (function): Function which will be run after the app
             initialization. It must issue assets and set config for the app.
             Takes an app as an argument and returns the updated app.
-            By default it just issues rgb20 and rgb121 assets with the group named
+            By default it just issues NIA and CFA assets with the group named
             "group_1".
     """
 
@@ -35,6 +35,6 @@ def fixture_get_app():
             shutil.rmtree(datadir)
         os.makedirs(datadir, exist_ok=True)
 
-        return create_test_app(get_test_name(), custom_app_prep)
+        return create_test_app(custom_app_prep=custom_app_prep)
 
     return _get_app

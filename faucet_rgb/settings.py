@@ -20,9 +20,7 @@ class Config():  # pylint: disable=too-few-public-methods
     # list of consignment endpoints
     # see https://github.com/RGB-Tools/rgb-http-json-rpc for the spec
     # see https://github.com/grunch/rgb-proxy-server for the implementation
-    CONSIGNMENT_ENDPOINTS = [
-        'rgbhttpjsonrpc:http://proxy.iriswallet.com/json-rpc'
-    ]
+    CONSIGNMENT_ENDPOINTS = ['rpc://proxy.iriswallet.com/0.2/json-rpc']
     # faucet SQLite3 database file name
     DATABASE_NAME = 'db.sqlite3'
     # faucet data directory (absolute or relative)
@@ -32,6 +30,8 @@ class Config():  # pylint: disable=too-few-public-methods
     ELECTRUM_URL = 'ssl://electrum.iriswallet.com:50013'
     # fee rate for transactions
     FEE_RATE = 1.5
+    # fingerprint of the underlying rgb-lib wallet
+    FINGERPRINT = None
     # faucet's main log file name
     LOG_FILENAME = 'main.log'
     # faucet's scheduler log file name

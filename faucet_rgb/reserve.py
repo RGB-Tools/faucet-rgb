@@ -23,9 +23,9 @@ def top_up_rgb():
     if auth != current_app.config['API_KEY_OPERATOR']:
         return jsonify({'error': 'unauthorized'}), 401
     wallet = current_app.config['WALLET']
-    blind_data = wallet.blind(None, None, None,
-                              current_app.config['CONSIGNMENT_ENDPOINTS'])
+    blind_data = wallet.blind_receive(
+        None, None, None, current_app.config['CONSIGNMENT_ENDPOINTS'], 1)
     return jsonify({
-        'blinded_utxo': blind_data.blinded_utxo,
+        'blinded_utxo': blind_data.recipient_id,
         'expiration': blind_data.expiration_timestamp
     })

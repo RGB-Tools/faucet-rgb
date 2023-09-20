@@ -4,6 +4,7 @@ Tests for asset-migration functionality
 
 import glob
 import os
+import shutil
 import time
 
 import pytest
@@ -14,8 +15,8 @@ from faucet_rgb.utils import get_logger
 from tests import (  # pylint:disable=unused-import
     fixture_get_app, get_test_name)
 from tests.utils import (
-    check_receive_asset, check_requests_left, create_test_app, prepare_assets,
-    prepare_user_wallets)
+    add_previous_request, check_receive_asset, check_requests_left,
+    create_test_app, generate, prepare_assets, prepare_user_wallets)
 
 
 def _app_preparation_1(app):
@@ -97,7 +98,7 @@ def _assure_no_pending_request(app):
         time.sleep(3)
 
 
-def test_migration(get_app):
+def test_migration(get_app):  # pylint: disable=too-many-statements
     """Test migration for the following cases.
 
     - User0: User received an old asset.
@@ -116,36 +117,45 @@ def test_migration(get_app):
 
     - group_1: Assets being migrated. For User0,2.
     - group_2: Assets being migrated. For User2.
-    - group_dummy: New group which is added after migration(a.k.a. non-migration group).
+    - group_dummy: New group which is added after migration (a.k.a. non-migration group).
     """
 
+    print('starting with initial configuration')
     app = get_app(_app_preparation_1)
+    assert not app.config['ASSET_MIGRATION_CACHE']
+    assert app.config['NON_MIGRATION_GROUPS'] == {'group_1', 'group_2'}
 
-    users = prepare_user_wallets(app, 4)
-
-    # user 0,2 have requested asset before migration
-    check_receive_asset(app, users[0], "group_1")
-    check_receive_asset(app, users[2], "group_1")
-    check_receive_asset(app, users[2],
-                        "group_2")  # user 2 also has an asset from group_2
-
-    _assure_no_pending_request(app)
-
-    # stop for a while since we want to test with a pending request
+    # pause the scheduler so it doesn't process pending requests
     scheduler.pause()
 
-    # user 3 requests asset before migration, but not actually received it
-    # the request status for it must NOT be 40 (= "served")
-    check_receive_asset(app, users[3], "group_1")
+    # prepare user wallets
+    users = prepare_user_wallets(app, 4)
 
-    # -- restart app with all assets removed --
-    matches = glob.glob(os.path.join(app.config["DATA_DIR"], "*", "rgb_db"))
-    for match in matches:
-        os.remove(match)
+    # user 0,2 have requested assets before migration
+    add_previous_request(app, users[0], 'group_1', 40)
+    add_previous_request(app, users[2], 'group_1', 40)
+    add_previous_request(app, users[2], 'group_2',
+                         40)  # user 2 also has an asset from group_2
+
+    # user 3 requests asset before migration, but does not actually receive it
+    add_previous_request(app, users[3], 'group_1', 20)
+
+    # -- restart app from scratch, configure new groups + migration
+    print('restarting from scratch + configuring asset migration')
+    scheduler.shutdown()
+    while scheduler.running:
+        time.sleep(1)
+    wallet_dirs = glob.glob(
+        os.path.join(app.config["DATA_DIR"], app.config["FINGERPRINT"]))
+    for wallet_dir in wallet_dirs:
+        shutil.rmtree(wallet_dir)
 
     old_asset_config = app.config["ASSETS"]
-    custom_asset_preparation = _get_app_preparation_2(old_asset_config)
-    app = create_test_app(get_test_name(), custom_asset_preparation)
+    app_preparation_2 = _get_app_preparation_2(old_asset_config)
+    app = create_test_app(custom_app_prep=app_preparation_2)
+    assert app.config['ASSET_MIGRATION_CACHE'].get('group_1') is not None
+    assert app.config['ASSET_MIGRATION_CACHE'].get('group_2') is not None
+    assert app.config['NON_MIGRATION_GROUPS'] == {'group_dummy'}
 
     new_group_1_asset_ids = [
         i["asset_id"] for i in app.config["ASSETS"]["group_1"]["assets"]
@@ -157,79 +167,61 @@ def test_migration(get_app):
         i["asset_id"] for i in app.config["ASSETS"]["group_dummy"]["assets"]
     ]
 
-    # -- --
-
-    # check (pending) request from user 3 is updated as a request for migrated asset id
+    # check user 3 pending request is updated with the new (migrated) asset id
     with app.app_context():
-        user3_requests: Request = Request.query.filter(
+        user3_requests = Request.query.filter(
             Request.wallet_id == users[3]["xpub"], Request.status != 40).all()
         assert len(user3_requests) == 1, "must have only one pending request"
         req = user3_requests[0]
         assert (
             req.asset_id
             in new_group_1_asset_ids), "must migrate to new asset on startup"
-    # the pending request will be updated as a request for the new asset_id
-    # thus requests_left for the group_1 will be 0
+    # the pending request has been updated > 0 requests_left for group_1
     check_requests_left(app, users[3]["xpub"], {
         "group_1": 0,
         "group_2": 0,
         "group_dummy": 1
     })
 
-    # for users those have an old asset in group_1,
-    # they can request a migration, thus requests_left for group_1 must be 1
-    # they do not have an old asset in group_2, Thus request_left must be 0
+    # user 0 has not yet migrated group_1 > 1 request left
+    # did not have group_2 migration > 0 requests left
+    # has not yet requested from group_dummy > 1 request left
     check_requests_left(app, users[0]["xpub"], {
         "group_1": 1,
         "group_2": 0,
         "group_dummy": 1
     })
-
-    # must send a random asset (from non-migration group) when no group is specified
+    # no group specified > send a random asset (from non-migration group)
     check_receive_asset(app, users[0], None, 200, dummy_asset_ids)
-    # second request for non-migration group is not allowed
+    # second request for non-migration group not allowed
     check_requests_left(app, users[0]["xpub"], {
         "group_1": 1,
         "group_2": 0,
         "group_dummy": 0
     })
     check_receive_asset(app, users[0], None, 403)
-
-    # even the user has an asset from non-migration group, it should not affect
-    # the fact that he can still migrate
-    check_requests_left(app, users[0]["xpub"], {
-        "group_1": 1,
-        "group_2": 0,
-        "group_dummy": 0
-    })
-    # must send a new asset when requested with the group_id for waiting migration
+    # group_1 specified > send migrated asset
     check_receive_asset(app, users[0], "group_1", 200, new_group_1_asset_ids)
-    # after migration request, requests_left for migration group must be 0
+    # second request for same migration group not allowed
     check_requests_left(app, users[0]["xpub"], {
         "group_1": 0,
         "group_2": 0,
         "group_dummy": 0
     })
-    # second request for migration group is not allowed
     check_receive_asset(app, users[0], "group_1", 403)
-
-    # should fail to request an asset for migration group which
-    # the user does not have an old asset
+    # reqeust for group_2 (user doesn't have an old request for it) > deny
     check_receive_asset(app, users[0], "group_2", 403)
-    # --- ---
 
-    # --- case 2: users without old asset ---
+    # user 1 has no old requests for migration groups > 0 requsts left for both
+    # has not yet requested from group_dummy > 1 request left
     check_requests_left(app, users[1]["xpub"], {
         "group_1": 0,
         "group_2": 0,
         "group_dummy": 1
     })
-
-    # must send a random asset from non-migration group
-    # when they did not specify a group_id
+    # no group specified > send a random asset (from non-migration group)
     check_receive_asset(app, users[1], None, 200, dummy_asset_ids)
-
-    # second request for non-migration group is not allowed
+    # second request for non-migration group not allowed
     check_requests_left(app, users[1]["xpub"], {
         "group_1": 0,
         "group_2": 0,
@@ -237,44 +229,120 @@ def test_migration(get_app):
     })
     check_receive_asset(app, users[1], None, 403)
 
-    # must not send a new asset for new users if the group_id is in
-    # a migration group
-    check_receive_asset(app, users[1], "group_1", 403)
-    # --- ---
-
-    # --- case 3: user received 2 old asset, one in group_1, another in group_2 ---
+    # user 2 has old requests for both migration groups > 1 request left each
+    # has not yet requested from group_dummy > 1 request left
     check_requests_left(app, users[2]["xpub"], {
         "group_1": 1,
         "group_2": 1,
         "group_dummy": 1
     })
-
-    # must send a random asset (from non-migration group) when no group is specified
+    # no group specified > send a random asset (from non-migration group)
     check_receive_asset(app, users[2], None, 200, dummy_asset_ids)
+    # second request for non-migration group not allowed
     check_requests_left(app, users[2]["xpub"], {
         "group_1": 1,
         "group_2": 1,
         "group_dummy": 0
     })
-
-    # must send a new asset when requested with the group_id waiting for migration
+    check_receive_asset(app, users[2], None, 403)
+    # group_1 specified > send migrated asset
     check_receive_asset(app, users[2], "group_1", 200, new_group_1_asset_ids)
-
-    # after issuance, request_left will be 0 only for that group
+    # second request for same migration group not allowed
     check_requests_left(app, users[2]["xpub"], {
         "group_1": 0,
         "group_2": 1,
         "group_dummy": 0
     })
-
-    # and fails to send new asset again
     check_receive_asset(app, users[2], "group_1", 403)
-
-    # same for group_2
+    # group_2 specified > send migrated asset
     check_receive_asset(app, users[2], "group_2", 200, new_group_2_asset_ids)
+    # second request for same migration group not allowed
     check_requests_left(app, users[2]["xpub"], {
         "group_1": 0,
         "group_2": 0,
         "group_dummy": 0
     })
     check_receive_asset(app, users[2], "group_2", 403)
+
+    # wait for scheduler to process requests
+    print('waiting for scheduler to process pending requests...')
+    with app.app_context():
+        while True:
+            time.sleep(1)
+            pending_requests = Request.query.filter(Request.status == 20)
+            if not pending_requests.count():
+                break
+            print('pending requests:', pending_requests.count())
+            generate(1)
+    print('done')
+
+    # -- restart app (no configuration changes)
+    print('restarting with no configuration changes')
+    scheduler.shutdown()
+    while scheduler.running:
+        time.sleep(1)
+    app = create_test_app(config=app.config)
+    assert app.config['ASSET_MIGRATION_CACHE'].get('group_1') is not None
+    assert app.config['ASSET_MIGRATION_CACHE'].get('group_2') is not None
+    assert app.config['NON_MIGRATION_GROUPS'] == {'group_dummy'}
+
+    # user 0 has now migrated group_1 > 0 requests left
+    # did not have group_2 migration > 0 requests left
+    # has already requested from group_dummy > 0 requests left
+    check_requests_left(app, users[0]["xpub"], {
+        "group_1": 0,
+        "group_2": 0,
+        "group_dummy": 0
+    })
+
+    # user 1 did not have group_1 migration > 0 requests left
+    # did not have group_2 migration > 0 requests left
+    # has already requested from group_dummy > 0 requests left
+    check_requests_left(app, users[1]["xpub"], {
+        "group_1": 0,
+        "group_2": 0,
+        "group_dummy": 0
+    })
+
+    # user 2 has now migrated group_1 > 0 requests left
+    # has now migrated group_2 > 0 requests left
+    # has already requested from group_dummy > 0 requests left
+    check_requests_left(app, users[0]["xpub"], {
+        "group_1": 0,
+        "group_2": 0,
+        "group_dummy": 0
+    })
+
+    # user 3 has now migrated group_1 > 0 requests left
+    # did not have group_2 migration > 0 requests left
+    # has not requested from group_dummy yet > 1 request left
+    check_requests_left(app, users[3]["xpub"], {
+        "group_1": 0,
+        "group_2": 0,
+        "group_dummy": 1
+    })
+
+    # -- restart again with no asset migration
+    print('restarting with migration no more configured')
+    scheduler.shutdown()
+    while scheduler.running:
+        time.sleep(1)
+    config = app.config
+    config["ASSETS"].pop('group_1')
+    config["ASSETS"].pop('group_2')
+    config["ASSET_MIGRATION_MAP"] = None
+    app = create_test_app(config=config)
+    assert not app.config['ASSET_MIGRATION_CACHE']
+    assert app.config['NON_MIGRATION_GROUPS'] == {'group_dummy'}
+
+    # user 0 has already requested from group_dummy > 0 requests left
+    check_requests_left(app, users[0]["xpub"], {"group_dummy": 0})
+
+    # user 1 has already requested from group_dummy > 0 requests left
+    check_requests_left(app, users[1]["xpub"], {"group_dummy": 0})
+
+    # user 2 has already requested from group_dummy > 0 requests left
+    check_requests_left(app, users[0]["xpub"], {"group_dummy": 0})
+
+    # user 3 has not requested from group_dummy yet > 1 request left
+    check_requests_left(app, users[3]["xpub"], {"group_dummy": 1})

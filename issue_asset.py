@@ -1,4 +1,4 @@
-"""Module to issue RGB20 and RGB121 assets."""
+"""Module to issue NIA and CFA assets."""
 
 import argparse
 import os
@@ -22,19 +22,18 @@ def _confirm_summary(args, to_print):
 
 def _issue_asset(wallet, online, args):
     common = ['name', 'precision', 'amounts']
-    if args.schema.lower() == 'rgb20':
+    if args.schema.lower() == 'nia':
         if not args.ticker:
-            print('missing ticker, which is required for RGB20 assets')
+            print('missing ticker, which is required for NIA assets')
             sys.exit(1)
         _confirm_summary(args, common + ['ticker'])
-        asset = wallet.issue_asset_rgb20(online, args.ticker, args.name,
-                                         args.precision, args.amounts)
-    elif args.schema.lower() == 'rgb121':
+        asset = wallet.issue_asset_nia(online, args.ticker, args.name,
+                                       args.precision, args.amounts)
+    elif args.schema.lower() == 'cfa':
         _confirm_summary(args,
                          common + ['description', 'parent_id', 'file_path'])
-        asset = wallet.issue_asset_rgb121(
+        asset = wallet.issue_asset_cfa(
             online, args.name, args.description, args.precision, args.amounts,
-            args.parent_id if args.parent_id else None,
             args.file_path if args.file_path else None)
     else:
         print(f'unsupported schema "{args.schema}"')
@@ -46,7 +45,7 @@ def entrypoint():
     """Poetry script entrypoint."""
     parser = argparse.ArgumentParser(description='Issue an asset.')
     # asset type
-    parser.add_argument('schema', help='RGB20 or RGB121')
+    parser.add_argument('schema', help='NIA or CFA')
     # mandatory common arguments
     parser.add_argument('name', help='asset name')
     parser.add_argument('precision', type=int, help='asset precision')
@@ -54,16 +53,13 @@ def entrypoint():
     # optional schema-based arguments
     parser.add_argument('--ticker',
                         nargs='?',
-                        help="Uppercase ticker for RGB20 assets")
+                        help="Uppercase ticker for NIA assets")
     parser.add_argument('--description',
                         nargs='?',
-                        help="Description for RGB121 assets")
-    parser.add_argument('--parent_id',
-                        nargs='?',
-                        help='parent_id for RGB121 assets')
+                        help="Description for CFA assets")
     parser.add_argument('--file_path',
                         nargs='?',
-                        help='path to media file for RGB121 assets')
+                        help='path to media file for CFA assets')
     args = parser.parse_args()
 
     app = settings.get_app(__name__)
@@ -85,6 +81,7 @@ def entrypoint():
         pass
     except rgb_lib.RgbLibError.InsufficientBitcoins as err:
         print((f'Insufficient funds ({err.available} available sats).\n'
-               f'Funds can be sent to the following address'), wallet.get_address())
+               f'Funds can be sent to the following address'),
+              wallet.get_address())
         sys.exit(1)
     _issue_asset(wallet, online, args)

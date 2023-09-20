@@ -25,7 +25,9 @@ class Request(db.Model):  # pylint: disable=too-few-public-methods
     asset_id = db.Column(db.String(256), nullable=True)
     amount = db.Column(db.Integer, nullable=True)
 
-    def __init__(self, wallet_id, blinded_utxo, asset_group, asset_id, amount):  # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments
+    def __init__(self, wallet_id, blinded_utxo, asset_group, asset_id, amount):
+        # pylint: disable=too-many-arguments
         self.timestamp = get_current_timestamp()
         self.status = 10
         self.wallet_id = wallet_id

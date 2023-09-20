@@ -261,8 +261,8 @@ created automatically. As an example:
 
 
 ```shell
-poetry run issue-asset rgb20 "fungible token" 0 1000 1000 --ticker "FFA"
-poetry run issue-asset rgb121 "CTB" 0 10 10 --description "a collectible" --file_path ./README.md
+poetry run issue-asset NIA "fungible token" 0 1000 1000 --ticker "FFA"
+poetry run issue-asset CFA "CTB" 0 10 10 --description "a collectible" --file_path ./README.md
 ```
 
 Finally, complete the configuration by defining the faucet's `NAME` and the
@@ -290,7 +290,7 @@ To configure the faucet to use these services, set the `ELECTRUM_URL` and
 `CONSIGNMENT_ENDPOINTS` variables:
 ```py:config.py
 ELECTRUM_URL="tcp://localhost:50001"
-CONSIGNMENT_ENDPOINTS=["rgbhttpjsonrpc:http://localhost:3000/json-rpc"]
+CONSIGNMENT_ENDPOINTS=["rpc:http://localhost:3000/json-rpc"]
 ```
 
 Funding wallets in the regtest environment can be done using bitcoind directly:

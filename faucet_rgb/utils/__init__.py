@@ -22,7 +22,7 @@ def get_rgb_asset(asset_id):
     """Return the RGB asset with the given ID and its schema, if found."""
     wallet = current_app.config["WALLET"]
     assets = wallet.list_assets([])
-    for schema in ('rgb20', 'rgb121'):
+    for schema in ('nia', 'cfa'):
         for asset in getattr(assets, schema):
             if asset.asset_id == asset_id:
                 return asset, schema.upper()
