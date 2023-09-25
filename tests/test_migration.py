@@ -268,7 +268,7 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
     print('waiting for scheduler to process pending requests...')
     with app.app_context():
         while True:
-            time.sleep(1)
+            time.sleep(2)
             pending_requests = Request.query.filter(Request.status == 20)
             if not pending_requests.count():
                 break

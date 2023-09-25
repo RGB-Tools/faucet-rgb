@@ -1,17 +1,18 @@
 """Utilities for tests"""
 
+import json
 import os
 import shutil
+import socket
 import subprocess
 import time
+import urllib
 
 import rgb_lib
 from flask import Flask
 
-from faucet_rgb import create_app
-from faucet_rgb import utils
-from faucet_rgb.database import Request
-from faucet_rgb.database import db
+from faucet_rgb import create_app, utils
+from faucet_rgb.database import Request, db
 from faucet_rgb.settings import Config
 from faucet_rgb.utils.wallet import get_sha256_hex
 
@@ -66,9 +67,41 @@ def generate(num):
         timeout=3000,
         check=True,
     )
-    # necessary for the wallet (more accurately the electrum) to
-    # notice about the UTXO after confirmation
-    time.sleep(2)
+    # wait for electrs to have synced the new block
+    _wait_electrs_sync()
+
+
+def _wait_electrs_sync():
+    deadline = time.time() + 10
+    # get bitcoind block count
+    getblockcount = subprocess.run(
+        BITCOIN_ARG + ["getblockcount"],
+        capture_output=True,
+        timeout=3000,
+        check=True,
+    )
+    height = int(getblockcount.stdout.decode().strip())
+    # wait for electrs the have reached the same height
+    electrum = urllib.parse.urlparse(ELECTRUM_URL)
+    message = {
+        'method': 'blockchain.block.header',
+        'params': [height],
+        'id': 1,
+    }
+    request = json.dumps(message).encode('utf-8') + b'\n'
+    while True:
+        time.sleep(0.1)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(3.0)
+            sock.connect((electrum.hostname, electrum.port))
+            sock.sendall(request)
+            res = sock.recv(1024)
+        response = json.loads(res)
+        if response.get('result'):
+            print('new height:', height)
+            break
+        if time.time() > deadline:
+            raise RuntimeError('electrs not syncing with bitcoind')
 
 
 def _get_user_wallet(data_dir):
