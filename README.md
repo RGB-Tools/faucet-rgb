@@ -330,17 +330,23 @@ curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/asset/<xpub>/<blind
 
 Automated integration testing is supported via pytest.
 
-At the moment, running all tests in parallel is not possible as the migration
-test needs to pause the scheduler to achieve the desired state.
+To execute tests, first launch the services via docker compose, then run:
 
-To execute tests, first launch the services via docker compose, then run a
-specific test with the following command:
-
+```sh
+poetry run pytest
+```
+To execute a single test module run:
 ```sh
 poetry run pytest <path/to/testfile.py>
 ```
+To execute a single test run:
+```sh
+poetry run pytest <path/to/testfile.py>::<test_name>
+```
 
-Note: output capture can be disabled by adding the `-s` pytest option.
+Notes:
+- output capture can be disabled by adding the `-s` pytest option
+- output from passed tests can be shown at the end by adding the `-rP` pytest option
 
 [rgb-proxy-server]: https://github.com/grunch/rgb-proxy-server
 [Initial setup example]: #initial-setup-example
