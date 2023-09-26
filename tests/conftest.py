@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import subprocess
 
 import pytest
 
@@ -10,6 +11,24 @@ from tests.utils import create_test_app, get_test_datadir, prepare_assets
 
 def _default_app_prep(app):
     return prepare_assets(app, "group_1")
+
+
+@pytest.fixture(autouse=True, scope='session')
+def start_services():
+    """Start/stop services required for tests to run."""
+    subprocess.run(
+        ["docker/services.sh", "start"],
+        capture_output=True,
+        timeout=10000,
+        check=True,
+    )
+    yield
+    subprocess.run(
+        ["docker/services.sh", "stop"],
+        capture_output=True,
+        timeout=10000,
+        check=True,
+    )
 
 
 @pytest.fixture()

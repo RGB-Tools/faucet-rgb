@@ -275,11 +275,9 @@ Finally, complete the configuration by defining the faucet's `NAME` and the
 The `docker` directory contains a docker compose to run local copies of the
 services required by the faucet to operate, configured for the regtest network.
 
-The `start_services.sh` script is also included to start them:
+The `services.sh` script is also included to start them:
 ```sh
-cd docker
-./start_services.sh
-cd ..
+./docker/services.sh start
 ```
 The following services will be run in the background:
 * bitcoind (regtest)
@@ -293,12 +291,9 @@ ELECTRUM_URL="tcp://localhost:50001"
 CONSIGNMENT_ENDPOINTS=["rpc:http://localhost:3000/json-rpc"]
 ```
 
-Funding wallets in the regtest environment can be done using bitcoind directly:
+Regtest wallets can also be funded using `services.sh` script:
 ```sh
-cd docker
-docker compose exec -T -u blits bitcoind bitcoin-cli -regtest sendtoaddress <address> 1
-docker compose exec -T -u blits bitcoind bitcoin-cli -regtest -generate 1
-cd ..
+./docker/services.sh fund <address> 1
 ```
 
 Setup a faucet as in the [Initial setup example] section.
@@ -310,8 +305,10 @@ funding part (stop before issuing assets).
 This separate instance will be used as an RGB-enabled wallet to request assets
 from the faucet.
 
-To tear down the services, just run `docker compose down -v` in the `docker/`
-directory.
+To tear down the services, run:
+```sh
+./docker/services.sh stop
+```
 
 ### Example asset request
 
@@ -330,15 +327,16 @@ curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/asset/<xpub>/<blind
 
 Automated integration testing is supported via pytest.
 
-To execute tests, first launch the services via docker compose, then run:
-
+To execute tests, run:
 ```sh
 poetry run pytest
 ```
+
 To execute a single test module run:
 ```sh
 poetry run pytest <path/to/testfile.py>
 ```
+
 To execute a single test run:
 ```sh
 poetry run pytest <path/to/testfile.py>::<test_name>
@@ -346,7 +344,8 @@ poetry run pytest <path/to/testfile.py>::<test_name>
 
 Notes:
 - output capture can be disabled by adding the `-s` pytest option
-- output from passed tests can be shown at the end by adding the `-rP` pytest option
+- output from passed tests can be shown at the end by adding the `-rP` pytest
+  option
 
 [rgb-proxy-server]: https://github.com/grunch/rgb-proxy-server
 [Initial setup example]: #initial-setup-example
