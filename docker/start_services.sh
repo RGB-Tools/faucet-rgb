@@ -1,6 +1,11 @@
 #!/bin/bash
 set -eu
 
+_die () {
+    echo "ERR: $*"
+    exit 1
+}
+
 COMPOSE="docker compose"
 if ! $COMPOSE >/dev/null; then
     echo "could not call docker compose (hint: install docker compose plugin)"
@@ -13,6 +18,13 @@ TEST_DIR="./tmp"
 $COMPOSE down -v
 rm -rf $TEST_DIR
 mkdir -p $TEST_DIR
+# see docker-compose.yml for the exposed ports
+EXPOSED_PORTS=(3000 50001)
+for port in "${EXPOSED_PORTS[@]}"; do
+    if [ -n "$(ss -HOlnt "sport = :$port")" ];then
+        _die "port $port is already bound, services can't be started"
+    fi
+done
 $COMPOSE up -d
 
 # wait for bitcoind to be up
