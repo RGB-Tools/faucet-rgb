@@ -154,17 +154,21 @@ def check_requests_left(app, xpub, group_to_requests_left):
         assert expected == actual
 
 
+def create_and_blind(config, user):
+    """Create up to 1 UTXO and return a blinded UTXO."""
+    wallet = user["wallet"]
+    _ = wallet.create_utxos(user["online"], True, 1, None, config["FEE_RATE"])
+    blind_data = wallet.blind_receive(None, None, None,
+                                      config["CONSIGNMENT_ENDPOINTS"], 1)
+    return blind_data.recipient_id
+
+
 def add_previous_request(app, user, asset_group, status):
     """Add a request to DB to simulate a previous request."""
     amount = app.config['ASSETS'][asset_group]['assets'][0]['amount']
     asset_id = app.config['ASSETS'][asset_group]['assets'][0]['asset_id']
     wallet_id = user["xpub"]
-    wallet = user["wallet"]
-    _ = wallet.create_utxos(user["online"], True, 1, None,
-                            app.config["FEE_RATE"])
-    blind_data = wallet.blind_receive(None, None, None,
-                                      app.config["CONSIGNMENT_ENDPOINTS"], 1)
-    blinded_utxo = blind_data.recipient_id
+    blinded_utxo = create_and_blind(app.config, user)
     with app.app_context():
         db.session.add(
             Request(wallet_id, blinded_utxo, asset_group, asset_id, amount))
@@ -186,17 +190,12 @@ def check_receive_asset(app,
                         expected_status_code=200,
                         expected_asset_id_list=None):
     """Check the /receive/asset endpoint."""
-    xpub = user["xpub"]
-    wallet_id = get_sha256_hex(xpub)
-    wallet = user["wallet"]
-    _ = wallet.create_utxos(user["online"], True, 1, None,
-                            app.config["FEE_RATE"])
-    blind_data = wallet.blind_receive(None, None, None,
-                                      app.config["CONSIGNMENT_ENDPOINTS"], 1)
+    wallet_id = get_sha256_hex(user["xpub"])
+    blinded_utxo = create_and_blind(app.config, user)
     group_query = "" if group_to_request is None else f"?asset_group={group_to_request}"
     client = app.test_client()
     resp = client.get(
-        f"/receive/asset/{wallet_id}/{blind_data.recipient_id}{group_query}",
+        f"/receive/asset/{wallet_id}/{blinded_utxo}{group_query}",
         headers=USER_HEADERS,
     )
     assert resp.status_code == expected_status_code
@@ -343,9 +342,8 @@ def create_test_app(config=None, custom_app_prep=None):
     def _custom_get_app():
         if config:
             return _reconfigure_test_app(config)
-        elif custom_app_prep:
+        if custom_app_prep:
             return _prepare_test_app(custom_app_prep)
-        else:
-            raise RuntimeError("either config or custom_app_prep expected")
+        raise RuntimeError('config or custom_app_prep expected')
 
     return create_app(_custom_get_app, False)

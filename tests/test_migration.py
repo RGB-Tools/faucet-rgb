@@ -12,8 +12,6 @@ import pytest
 from faucet_rgb import Request
 from faucet_rgb.scheduler import scheduler
 from faucet_rgb.utils import get_logger
-from tests import (  # pylint:disable=unused-import
-    fixture_get_app, get_test_name)
 from tests.utils import (
     add_previous_request, check_receive_asset, check_requests_left,
     create_test_app, generate, prepare_assets, prepare_user_wallets)
