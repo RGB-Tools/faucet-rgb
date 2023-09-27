@@ -17,10 +17,10 @@ class Config():  # pylint: disable=too-few-public-methods
     ASSETS = {}
     # if true, adjust the WSGI environ to use X-Forwarded-* headers
     BEHIND_PROXY = False
-    # list of consignment endpoints
+    # list of transport endpoints
     # see https://github.com/RGB-Tools/rgb-http-json-rpc for the spec
     # see https://github.com/grunch/rgb-proxy-server for the implementation
-    CONSIGNMENT_ENDPOINTS = ['rpc://proxy.iriswallet.com/0.2/json-rpc']
+    TRANSPORT_ENDPOINTS = ['rpc://proxy.iriswallet.com/0.2/json-rpc']
     # faucet SQLite3 database file name
     DATABASE_NAME = 'db.sqlite3'
     # faucet data directory (absolute or relative)

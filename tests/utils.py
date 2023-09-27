@@ -10,8 +10,9 @@ import urllib
 
 import rgb_lib
 from flask import Flask
+from flask_apscheduler import STATE_RUNNING
 
-from faucet_rgb import create_app, utils
+from faucet_rgb import create_app, scheduler, utils
 from faucet_rgb.database import Request, db
 from faucet_rgb.settings import Config
 from faucet_rgb.utils.wallet import get_sha256_hex
@@ -29,11 +30,14 @@ BITCOIN_ARG = [
     "bitcoin-cli",
     "-regtest",
 ]
-CONSIGNMENT_ENDPOINTS = ["rpc://localhost:3000/json-rpc"]
+TRANSPORT_ENDPOINTS = ["rpc://localhost:3000/json-rpc"]
 ELECTRUM_URL = "tcp://localhost:50001"
 NETWORK = "regtest"
 USER_HEADERS = {"x-api-key": Config.API_KEY}
 OPERATOR_HEADERS = {"x-api-key": Config.API_KEY_OPERATOR}
+BAD_HEADERS = {"x-api-key": 'wrongkey'}
+ISSUE_AMOUNT = 1000
+SEND_AMOUNT = 100
 
 
 def get_test_name():
@@ -159,15 +163,26 @@ def create_and_blind(config, user):
     wallet = user["wallet"]
     _ = wallet.create_utxos(user["online"], True, 1, None, config["FEE_RATE"])
     blind_data = wallet.blind_receive(None, None, None,
-                                      config["CONSIGNMENT_ENDPOINTS"], 1)
+                                      config["TRANSPORT_ENDPOINTS"], 1)
     return blind_data.recipient_id
 
 
-def add_previous_request(app, user, asset_group, status):
+def add_fake_request(  # pylint: disable=too-many-arguments
+        app,
+        user,
+        asset_group,
+        status,
+        amount=None,
+        asset_id=None,
+        hash_wallet_id=False):
     """Add a request to DB to simulate a previous request."""
-    amount = app.config['ASSETS'][asset_group]['assets'][0]['amount']
-    asset_id = app.config['ASSETS'][asset_group]['assets'][0]['asset_id']
+    if amount is None:
+        amount = app.config['ASSETS'][asset_group]['assets'][0]['amount']
+    if asset_id is None:
+        asset_id = app.config['ASSETS'][asset_group]['assets'][0]['asset_id']
     wallet_id = user["xpub"]
+    if hash_wallet_id:
+        wallet_id = get_sha256_hex(wallet_id)
     blinded_utxo = create_and_blind(app.config, user)
     with app.app_context():
         db.session.add(
@@ -242,14 +257,14 @@ def _issue_asset(app):
         ticker=f"TFT{_ASSET_COUNT}",
         name=f"test NIA asset ({_ASSET_COUNT})",
         precision=0,
-        amounts=[1000, 1000],
+        amounts=[ISSUE_AMOUNT, ISSUE_AMOUNT],
     )
     cfa = wallet.issue_asset_cfa(
         online,
         name=f"test CFA asset ({_ASSET_COUNT})",
         description="a CFA asset for testing",
         precision=0,
-        amounts=[1000, 1000],
+        amounts=[ISSUE_AMOUNT, ISSUE_AMOUNT],
         file_path=None,
     )
 
@@ -259,7 +274,8 @@ def _issue_asset(app):
 def prepare_assets(app, group_name="group_1"):
     """Issue (NIA, CFA) asset pair and set the config for the app.
 
-    Issue 1000 units for each asset, and the amount to send users is 100.
+    Issue ISSUE_AMOUNT units for each asset.
+    The amount to be sent to users is SEND_AMOUNT
 
     Args:
         app (Flask): Flask app to configure.
@@ -267,7 +283,7 @@ def prepare_assets(app, group_name="group_1"):
     """
 
     id1, id2 = _issue_asset(app)
-    asset_list = [{"asset_id": a, "amount": 100} for a in [id1, id2]]
+    asset_list = [{"asset_id": a, "amount": SEND_AMOUNT} for a in [id1, id2]]
     app.config["ASSETS"][group_name] = {
         "label": f"{group_name} for the test",
         "assets": asset_list,
@@ -286,7 +302,7 @@ def _get_test_base_app():
     app.config["DATA_DIR"] = get_test_datadir()
 
     # settings for regtest test environment
-    app.config["CONSIGNMENT_ENDPOINTS"] = CONSIGNMENT_ENDPOINTS
+    app.config["TRANSPORT_ENDPOINTS"] = TRANSPORT_ENDPOINTS
     app.config["ELECTRUM_URL"] = ELECTRUM_URL
     app.config["NETWORK"] = NETWORK
 
@@ -347,3 +363,32 @@ def create_test_app(config=None, custom_app_prep=None):
         raise RuntimeError('config or custom_app_prep expected')
 
     return create_app(_custom_get_app, False)
+
+
+def wait_refresh(wallet, online, asset=None):
+    """Wait for refresh to return true (a transfer has changed)."""
+    print('waiting for refresh to return True...')
+    deadline = time.time() + 30
+    while not wallet.refresh(online, asset, []):
+        if time.time() > deadline:
+            raise RuntimeError('refresh not returning True')
+        time.sleep(1)
+    print('refreshed')
+
+
+def wait_scheduler_processing(app):
+    """Wait for scheduler to process pending requests and generate blocks."""
+    print('waiting for scheduler to process pending requests...')
+    assert scheduler.state == STATE_RUNNING
+    with app.app_context():
+        deadline = time.time() + 30
+        while True:
+            time.sleep(2)
+            pending_requests = Request.query.filter(Request.status == 20)
+            if not pending_requests.count():
+                break
+            print('pending requests:', pending_requests.count())
+            if time.time() > deadline:
+                raise RuntimeError('pending requests not getting served')
+            generate(1)
+    print('processed')

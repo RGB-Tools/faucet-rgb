@@ -18,13 +18,13 @@ def top_up_btc():
 
 @bp.route('/top_up_rgb', methods=['GET'])
 def top_up_rgb():
-    """Return an address to top-up the faucet's Bitcoin reserve."""
+    """Return a blinded UTXO to top-up the faucet's RGB asset reserve."""
     auth = request.headers.get('X-Api-Key')
     if auth != current_app.config['API_KEY_OPERATOR']:
         return jsonify({'error': 'unauthorized'}), 401
     wallet = current_app.config['WALLET']
     blind_data = wallet.blind_receive(
-        None, None, None, current_app.config['CONSIGNMENT_ENDPOINTS'], 1)
+        None, None, None, current_app.config['TRANSPORT_ENDPOINTS'], 1)
     return jsonify({
         'blinded_utxo': blind_data.recipient_id,
         'expiration': blind_data.expiration_timestamp

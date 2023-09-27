@@ -53,7 +53,7 @@ def send_next_batch():
                     recipient_list.append(
                         rgb_lib.Recipient(
                             req.blinded_utxo, None, req.amount,
-                            current_app.config['CONSIGNMENT_ENDPOINTS']))
+                            current_app.config['TRANSPORT_ENDPOINTS']))
             recipient_map[asset_id] = recipient_list
 
         # try sending

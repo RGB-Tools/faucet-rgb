@@ -1,9 +1,12 @@
 """Faucet blueprint to top-up funds."""
 
+import rgb_lib
 from flask import Blueprint, current_app, jsonify, request
 from rgb_lib import TransferStatus
 
 from faucet_rgb import utils
+
+from .database import Request
 
 bp = Blueprint('control', __name__, url_prefix='/control')
 
@@ -31,8 +34,8 @@ def delete_transfers():
         return jsonify({'error': 'unauthorized'}), 401
 
     wallet = current_app.config["WALLET"]
-    wallet.delete_transfers(None, None, False)
-    return jsonify({}), 204
+    res = wallet.delete_transfers(None, None, False)
+    return jsonify({'result': res}), 200
 
 
 @bp.route('/fail', methods=['GET'])
@@ -44,8 +47,8 @@ def fail_transfers():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.fail_transfers(online, None, None, False)
-    return jsonify({}), 204
+    res = wallet.fail_transfers(online, None, None, False)
+    return jsonify({'result': res}), 200
 
 
 @bp.route('/transfers', methods=['GET'])
@@ -86,25 +89,25 @@ def list_transfers():
         for transfer in asset_transfers:
             if transfer.status not in status_filter:
                 continue
-            tces = [{
-                'endpoint': tce.endpoint,
-                'protocol': tce.protocol.name,
-                'used': tce.used
-            } for tce in transfer.consignment_endpoints]
+            ttes = [{
+                'endpoint': tte.endpoint,
+                'transport_type': tte.transport_type.name,
+                'used': tte.used
+            } for tte in transfer.transport_endpoints]
             transfers.append({
                 'status': transfer.status.name,
                 'amount': transfer.amount,
                 'kind': transfer.kind.name,
                 'txid': transfer.txid,
-                'blinded_utxo': transfer.blinded_utxo,
-                'consignment_endpoints': tces,
+                'recipient_id': transfer.recipient_id,
+                'transfer_transport_endpoints': ttes,
             })
     return jsonify({'transfers': transfers})
 
 
 @bp.route('/refresh/<asset_id>', methods=['GET'])
 def refresh(asset_id):
-    """Refresh asset."""
+    """Refresh asset transfers."""
     auth = request.headers.get('X-Api-Key')
     if auth != current_app.config['API_KEY_OPERATOR']:
         return jsonify({'error': 'unauthorized'}), 401
@@ -112,20 +115,77 @@ def refresh(asset_id):
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
     try:
-        wallet.refresh(online, asset_id, [])
-        return jsonify('{}'), 204
+        res = wallet.refresh(online, asset_id, [])
+        return jsonify({'result': res}), 200
+    except rgb_lib.RgbLibError.AssetNotFound:
+        return jsonify({'error': f'Unknown asset ID: {asset_id}'}), 404
     except Exception as err:  # pylint: disable=broad-except
         return jsonify({'error': f'Unknown error: {err}'}), 500
 
 
+@bp.route('/requests', methods=['GET'])
+def list_requests():
+    """Return requests.
+
+    Max 100 requests are returned.
+    Request can include filters as query parameters:
+    - 'status'
+    - 'asset_group'
+    - 'asset_id'
+    - 'blinded_utxo'
+    - 'wallet_id'
+
+    If no filter is provided, all requests in status 20 are returned
+    """
+    auth = request.headers.get('X-Api-Key')
+    if auth != current_app.config['API_KEY_OPERATOR']:
+        return jsonify({'error': 'unauthorized'}), 401
+
+    asset_group = request.args.get('asset_group')
+    asset_id = request.args.get('asset_id')
+    blinded_utxo = request.args.get('blinded_utxo')
+    status = request.args.get('status')
+    wallet_id = request.args.get('wallet_id')
+    if all(a is None
+           for a in [asset_group, asset_id, blinded_utxo, status, wallet_id]):
+        status = 20
+
+    reqs = Request.query
+    if asset_group:
+        reqs = reqs.filter_by(asset_group=asset_group)
+    if asset_id:
+        reqs = reqs.filter_by(asset_id=asset_id)
+    if blinded_utxo:
+        reqs = reqs.filter_by(blinded_utxo=blinded_utxo)
+    if status:
+        reqs = reqs.filter_by(status=status)
+    if wallet_id:
+        reqs = reqs.filter_by(wallet_id=wallet_id)
+
+    requests = []
+    for req in reqs.order_by(Request.idx.desc()).slice(0, 100).all():
+        requests.append({
+            'idx': req.idx,
+            'timestamp': req.timestamp,
+            'status': req.status,
+            'wallet_id': req.wallet_id,
+            'blinded_utxo': req.blinded_utxo,
+            'asset_group': req.asset_group,
+            'asset_id': req.asset_id,
+            'amount': req.amount,
+        })
+
+    return jsonify({'requests': requests})
+
+
 @bp.route('/unspents', methods=['GET'])
 def unspents():
-    """Return an address to top-up the faucet's Bitcoin reserve."""
+    """Return the list of wallet unspents."""
     auth = request.headers.get('X-Api-Key')
     if auth != current_app.config['API_KEY_OPERATOR']:
         return jsonify({'error': 'unauthorized'}), 401
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    unspent_dict = utils.wallet.get_unspent_dict(wallet, online)
-    return jsonify({'unspents': unspent_dict})
+    unspent_list = utils.wallet.get_unspent_list(wallet, online)
+    return jsonify({'unspents': unspent_list})

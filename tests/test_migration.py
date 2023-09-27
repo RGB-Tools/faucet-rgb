@@ -12,9 +12,9 @@ import pytest
 from faucet_rgb import Request
 from faucet_rgb.scheduler import scheduler
 from faucet_rgb.utils import get_logger
-from tests.utils import (
-    add_previous_request, check_receive_asset, check_requests_left,
-    create_test_app, generate, prepare_assets, prepare_user_wallets)
+from tests.utils import (add_fake_request, check_receive_asset,
+                         check_requests_left, create_test_app, prepare_assets,
+                         prepare_user_wallets, wait_scheduler_processing)
 
 
 def _app_preparation_1(app):
@@ -118,7 +118,6 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
     - group_dummy: New group which is added after migration (a.k.a. non-migration group).
     """
 
-    print('starting with initial configuration')
     app = get_app(_app_preparation_1)
     assert not app.config['ASSET_MIGRATION_CACHE']
     assert app.config['NON_MIGRATION_GROUPS'] == {'group_1', 'group_2'}
@@ -130,13 +129,13 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
     users = prepare_user_wallets(app, 4)
 
     # user 0,2 have requested assets before migration
-    add_previous_request(app, users[0], 'group_1', 40)
-    add_previous_request(app, users[2], 'group_1', 40)
-    add_previous_request(app, users[2], 'group_2',
-                         40)  # user 2 also has an asset from group_2
+    # user 2 also has an asset from group_2
+    add_fake_request(app, users[0], 'group_1', 40)
+    add_fake_request(app, users[2], 'group_1', 40)
+    add_fake_request(app, users[2], 'group_2', 40)
 
     # user 3 requests asset before migration, but does not actually receive it
-    add_previous_request(app, users[3], 'group_1', 20)
+    add_fake_request(app, users[3], 'group_1', 20)
 
     # -- restart app from scratch, configure new groups + migration
     print('restarting from scratch + configuring asset migration')
@@ -263,16 +262,7 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
     check_receive_asset(app, users[2], "group_2", 403)
 
     # wait for scheduler to process requests
-    print('waiting for scheduler to process pending requests...')
-    with app.app_context():
-        while True:
-            time.sleep(2)
-            pending_requests = Request.query.filter(Request.status == 20)
-            if not pending_requests.count():
-                break
-            print('pending requests:', pending_requests.count())
-            generate(1)
-    print('done')
+    wait_scheduler_processing(app)
 
     # -- restart app (no configuration changes)
     print('restarting with no configuration changes')

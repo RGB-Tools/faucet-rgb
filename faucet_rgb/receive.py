@@ -11,51 +11,6 @@ from .utils.wallet import is_walletid_valid
 bp = Blueprint('receive', __name__, url_prefix='/receive')
 
 
-@bp.route('/requests', methods=['GET'])
-def list_requests():
-    """Return requests.
-
-    Max 100 requests are returned.
-    Request can include filters as query parameters:
-    - 'status' (default 20)
-    - 'asset_group'
-    - 'asset_id'
-    - 'blinded_utxo'
-    - 'wallet_id'
-    """
-    auth = request.headers.get('X-Api-Key')
-    if auth != current_app.config['API_KEY_OPERATOR']:
-        return jsonify({'error': 'unauthorized'}), 401
-
-    status = 20
-    if request.args.get('status') is not None:
-        status = status = request.args.get('status')
-    reqs = Request.query.filter_by(status=status)
-    if request.args.get('asset_group') is not None:
-        reqs = reqs.filter_by(asset_group=request.args.get('asset_group'))
-    if request.args.get('asset_id') is not None:
-        reqs = reqs.filter_by(asset_id=request.args.get('asset_id'))
-    if request.args.get('blinded_utxo') is not None:
-        reqs = reqs.filter_by(blinded_utxo=request.args.get('blinded_utxo'))
-    if request.args.get('wallet_id') is not None:
-        reqs = reqs.filter_by(wallet_id=request.args.get('wallet_id'))
-
-    requests = []
-    for req in reqs.order_by(Request.idx.desc()).slice(0, 100).all():
-        requests.append({
-            'idx': req.idx,
-            'timestamp': req.timestamp,
-            'status': req.status,
-            'wallet_id': req.wallet_id,
-            'blinded_utxo': req.blinded_utxo,
-            'asset_group': req.asset_group,
-            'asset_id': req.asset_id,
-            'amount': req.amount,
-        })
-
-    return jsonify({'requests': requests})
-
-
 @bp.route('/config/<wallet_id>', methods=['GET'])
 def config(wallet_id):
     """Return current faucet configuration.
@@ -78,8 +33,8 @@ def config(wallet_id):
 
     # drop requests in status "new" which are older than a couple minutes
     time_thresh = get_current_timestamp() - 120
-    Request.query.filter(Request.status == 10,
-                         Request.timestamp < time_thresh).delete()
+    Request.query.filter(Request.status == 10, Request.timestamp
+                         < time_thresh).delete()
     db.session.commit()  # pylint: disable=no-member
 
     assets = current_app.config["ASSETS"]

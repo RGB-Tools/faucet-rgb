@@ -285,10 +285,10 @@ The following services will be run in the background:
 * [rgb-proxy-server]
 
 To configure the faucet to use these services, set the `ELECTRUM_URL` and
-`CONSIGNMENT_ENDPOINTS` variables:
+`TRANSPORT_ENDPOINTS` variables:
 ```py:config.py
 ELECTRUM_URL="tcp://localhost:50001"
-CONSIGNMENT_ENDPOINTS=["rpc:http://localhost:3000/json-rpc"]
+TRANSPORT_ENDPOINTS=["rpc:http://localhost:3000/json-rpc"]
 ```
 
 Regtest wallets can also be funded using `services.sh` script:

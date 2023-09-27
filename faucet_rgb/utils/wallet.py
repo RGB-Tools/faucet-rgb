@@ -4,9 +4,7 @@ import string
 import sys
 from hashlib import sha256
 
-import bdkpython as bdk
 import rgb_lib
-from flask import current_app
 
 
 def init_wallet(electrum_url, xpub, mnemonic, data_dir, network):
@@ -40,27 +38,31 @@ def init_wallet(electrum_url, xpub, mnemonic, data_dir, network):
     return online, wallet
 
 
-def _get_bdk_network():
-    network = current_app.config['NETWORK'].upper()
-    bdk_network = None
-    if network == 'MAINNET':
-        bdk_network = 'BITCOIN'
-    if hasattr(bdk.Network, network):
-        bdk_network = getattr(bdk.Network, network)
-    if not bdk_network:
-        raise RuntimeError("Could not get BDK network")
-    return bdk_network
-
-
-def get_unspent_dict(wallet, online):
+def get_unspent_list(wallet, online):
     """Return a dict of the available unspents."""
-    wallet.refresh(online, None, [])
-    unspent_list = wallet.list_unspents(False)
-    unspent_dict = {}
-    for unspent in unspent_list:
-        unspent_dict[str(
-            unspent.utxo)] = [str(a) for a in unspent.rgb_allocations]
-    return unspent_dict
+    unspents = wallet.list_unspents(online, False)
+    unspent_list = []
+    for unspent in unspents:
+        rgb_allocations_list = []
+        for allocation in unspent.rgb_allocations:
+            rgb_allocations_list.append({
+                'asset_id': allocation.asset_id,
+                'amount': allocation.amount,
+                'settled': allocation.settled,
+            })
+        unspent_dict = {
+            'utxo': {
+                'btc_amount': unspent.utxo.btc_amount,
+                'colorable': unspent.utxo.colorable,
+                'outpoint': {
+                    'txid': unspent.utxo.outpoint.txid,
+                    'vout': unspent.utxo.outpoint.vout,
+                }
+            },
+            'rgb_allocations': rgb_allocations_list,
+        }
+        unspent_list.append(unspent_dict)
+    return unspent_list
 
 
 def is_walletid_valid(wallet_id):

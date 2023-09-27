@@ -6,29 +6,12 @@ import subprocess
 
 import pytest
 
+from faucet_rgb.scheduler import scheduler
 from tests.utils import create_test_app, get_test_datadir, prepare_assets
 
 
 def _default_app_prep(app):
     return prepare_assets(app, "group_1")
-
-
-@pytest.fixture(autouse=True, scope='session')
-def start_services():
-    """Start/stop services required for tests to run."""
-    subprocess.run(
-        ["docker/services.sh", "start"],
-        capture_output=True,
-        timeout=10000,
-        check=True,
-    )
-    yield
-    subprocess.run(
-        ["docker/services.sh", "stop"],
-        capture_output=True,
-        timeout=10000,
-        check=True,
-    )
 
 
 @pytest.fixture()
@@ -56,3 +39,29 @@ def get_app():
         return create_test_app(custom_app_prep=custom_app_prep)
 
     return _get_app
+
+
+@pytest.fixture(autouse=True, scope='function')
+def shutdown_scheduler():
+    """Shutdown the scheduler after each test."""
+    yield
+    print('shutting down scheduler...')
+    scheduler.shutdown()
+
+
+@pytest.fixture(autouse=True, scope='session')
+def start_services():
+    """Start/stop services required for tests to run."""
+    subprocess.run(
+        ["docker/services.sh", "start"],
+        capture_output=True,
+        timeout=10000,
+        check=True,
+    )
+    yield
+    subprocess.run(
+        ["docker/services.sh", "stop"],
+        capture_output=True,
+        timeout=10000,
+        check=True,
+    )
