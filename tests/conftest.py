@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+from apscheduler.schedulers import SchedulerNotRunningError
 
 import pytest
 
@@ -46,7 +47,10 @@ def shutdown_scheduler():
     """Shutdown the scheduler after each test."""
     yield
     print('shutting down scheduler...')
-    scheduler.shutdown()
+    try:
+        scheduler.shutdown()
+    except SchedulerNotRunningError:
+        print('could not shut down the scheduler (not running)')
 
 
 @pytest.fixture(autouse=True, scope='session')

@@ -13,7 +13,7 @@ from tests.utils import (
     BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
     add_fake_request, check_receive_asset, check_requests_left,
     create_and_blind, generate, prepare_user_wallets, wait_refresh,
-    wait_scheduler_processing)
+    wait_sched_process_pending)
 
 
 def test_control_assets(get_app):
@@ -159,7 +159,7 @@ def test_control_refresh(get_app):
         assert requests.count() == 1
         request = requests.one()
     asset_id = request.asset_id
-    wait_scheduler_processing(app)
+    wait_sched_process_pending(app)
     resp = client.get(
         f"{api}/{asset_id}",
         headers=OPERATOR_HEADERS,
@@ -351,7 +351,7 @@ def test_control_transfers(get_app):  # pylint: disable=too-many-statements
     # 1 pending (WAITING_COUNTERPARTY + WAITING_CONFIRMATIONS) transfers
     user = prepare_user_wallets(app, 1)[0]
     check_receive_asset(app, user, None, 200)
-    wait_scheduler_processing(app)
+    wait_sched_process_pending(app)
     resp = client.get(
         api,
         headers=OPERATOR_HEADERS,
@@ -495,7 +495,7 @@ def test_receive_asset(get_app):
     assert 'schema' in asset
 
     scheduler.resume()
-    wait_scheduler_processing(app)
+    wait_sched_process_pending(app)
     generate(1)
     wait_refresh(app.config['WALLET'], app.config['ONLINE'])
     with app.app_context():
@@ -579,7 +579,7 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
     assert resp.status_code == 200
     asset = resp.json["asset"]
     asset_id = asset['asset_id']
-    wait_scheduler_processing(app)
+    wait_sched_process_pending(app)
     wait_refresh(user['wallet'], user['online'])
     generate(1)
     wait_refresh(user['wallet'], user['online'])

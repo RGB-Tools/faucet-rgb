@@ -9,8 +9,10 @@ db = SQLAlchemy()  # pylint: disable=invalid-name
 STATUS_MAP = {
     10: "new",
     20: "pending",
+    25: "waiting",
     30: "processing",
     40: "served",
+    45: "unmet",
 }
 
 

@@ -238,6 +238,13 @@ def create_app(custom_get_app=None, do_init_wallet=True):
             id='batch_donation',
             replace_existing=True,
         )
+        scheduler.add_job(
+            func=tasks.random_distribution,
+            trigger='interval',
+            seconds=app.config['SCHEDULER_INTERVAL'],
+            id='random_distribution',
+            replace_existing=True,
+        )
         scheduler.start()
 
     return app

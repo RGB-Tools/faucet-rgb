@@ -3,8 +3,24 @@
 import logging
 import os
 import sys
+from datetime import datetime
+from enum import Enum
 
 from flask import Flask
+
+from .exceptions import ConfigurationError
+
+
+class DistributionMode(Enum):
+    """Distribution modes.
+
+    STANDARD: collect requests and send assets in batches
+    RANDOM:   collect requests during a time interval and send assets to
+              randomly-selected ones once the interval has ended; if there are
+              more requests than assets, set the remaining requests as unmet
+    """
+    STANDARD = 1
+    RANDOM = 2
 
 
 class Config():  # pylint: disable=too-few-public-methods
@@ -73,6 +89,8 @@ class Config():  # pylint: disable=too-few-public-methods
     # and the actual migration state in the db on the startup, so you should not
     # configure this directly
     ASSET_MIGRATION_CACHE = {}
+    # date format string
+    DATE_FORMAT = '%Y-%m-%dT%H:%M:%S%z'
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods
@@ -144,6 +162,52 @@ LOGGING = {
 }
 
 
+def check_distribution(app, group_name, group_val, errors):
+    """Check distribution configuration for the given group."""
+    err_begin = 'missing distribution'
+    err_end = f'for group {group_name}'
+    dist_conf = group_val.get('distribution')
+    if not dist_conf:
+        errors.append(f'{err_begin} {err_end}')
+        return
+    dist_mode = dist_conf.get('mode')
+    if not dist_mode:
+        errors.append(f'{err_begin} mode {err_end}')
+        return
+    try:
+        dist_mode = DistributionMode(dist_mode)
+    except ValueError as err:
+        errors.append(f'error "{err}" {err_end}')
+        return
+    if dist_mode == DistributionMode.RANDOM:
+        dist_params = dist_conf.get('params')
+        if not dist_params:
+            errors.append(f'{err_begin} params {err_end}')
+            return
+        params = ['request_window_open', 'request_window_close']
+        for param in params:
+            par = dist_params.get(param)
+            if not par:
+                errors.append(f'{err_begin} param {param} {err_end}')
+                return
+            try:
+                datetime.strptime(par, app.config['DATE_FORMAT'])
+            except ValueError as err:
+                errors.append(f'error "{err}" for param {param} {err_end}')
+        try:
+            req_win_open = dist_params.get('request_window_open')
+            req_win_close = dist_params.get('request_window_close')
+            if req_win_open and req_win_close:
+                req_win_open = datetime.strptime(req_win_open,
+                                                 app.config['DATE_FORMAT'])
+                req_win_close = datetime.strptime(req_win_close,
+                                                  app.config['DATE_FORMAT'])
+            if req_win_close <= req_win_open:
+                errors.append(f'request window close {err_end} not after open')
+        except ValueError as err:
+            pass
+
+
 def check_assets(app):
     """Check asset configuration is valid."""
     errors = []
@@ -158,6 +222,7 @@ def check_assets(app):
             errors.append(f'missing label for group {key}')
         if not val.get('assets'):
             errors.append(f'missing assets for group {key}')
+        check_distribution(app, key, val, errors)
         for asset in val['assets']:
             if not asset.get('asset_id'):
                 errors.append(
@@ -169,7 +234,7 @@ def check_assets(app):
         print('issues parsing ASSETS configuration:')
         for error in errors:
             print(f' - {error}')
-        sys.exit(1)
+        raise ConfigurationError(errors)
 
 
 def check_config(app, log_dir):

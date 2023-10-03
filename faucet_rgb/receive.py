@@ -1,8 +1,11 @@
 """Faucet blueprint to top-up funds."""
 
 import random
+from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, jsonify, request
+
+from faucet_rgb.settings import DistributionMode
 
 from .database import Request, db
 from .utils import get_current_timestamp, get_logger, get_rgb_asset
@@ -141,11 +144,16 @@ def _request_rgb_asset_core(wallet_id, blinded_utxo, asset_group, asset,
         asset_data['ticker'] = rgb_asset.ticker
 
     # update request on db: update status, set asset_id and amount
+    new_status = 20
+    dist_conf = current_app.config['ASSETS'][asset_group]['distribution']
+    dist_mode = DistributionMode(dist_conf['mode'])
+    if dist_mode == DistributionMode.RANDOM:
+        new_status = 25
     # pylint: disable=no-member
-    logger.debug('setting request %s: asset_id %s, amount %s', req_idx,
-                 asset["asset_id"], asset["amount"])
+    logger.debug('setting request %s: asset_id %s, amount %s, status %s',
+                 req_idx, asset["asset_id"], asset["amount"], new_status)
     Request.query.filter_by(idx=req_idx).update({
-        "status": 20,
+        "status": new_status,
         "asset_id": asset['asset_id'],
         "amount": asset['amount']
     })
@@ -162,6 +170,20 @@ def _is_request_allowed(wallet_id, group_name):
                                 Request.asset_group == group_name).count()
     if reqs:
         return False
+
+    # deny based on distribution mode
+    dist_conf = current_app.config['ASSETS'][group_name]['distribution']
+    dist_mode = DistributionMode(dist_conf['mode'])
+    if dist_mode == DistributionMode.RANDOM:
+        req_win_open = dist_conf['params']['request_window_open']
+        req_win_close = dist_conf['params']['request_window_close']
+        date_format = current_app.config['DATE_FORMAT']
+        req_win_open = datetime.strptime(req_win_open, date_format)
+        req_win_close = datetime.strptime(req_win_close, date_format)
+        now = datetime.now(timezone.utc)
+        # deny requests outside the configured request window
+        if now < req_win_open or now > req_win_close:
+            return False
 
     # deny based on migration configuration and status
     if group_name not in current_app.config['NON_MIGRATION_GROUPS']:

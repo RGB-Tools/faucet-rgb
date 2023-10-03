@@ -17,8 +17,7 @@ def send_next_batch():
     If the SINGLE_ASSET_SEND option is True, only send a single asset per
     batch, which should help to:
     - keep asset histories separate
-    - keep consignment sizes down
-    - workaround the PSBT key error issue on mutliple assets per UTXO
+    - keep number of unspendable UTXOs low
     """
     with scheduler.app.app_context():
         logger = get_logger(__name__)

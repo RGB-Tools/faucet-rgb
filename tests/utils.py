@@ -242,11 +242,10 @@ _ASSET_COUNT = 0
 
 
 def _issue_asset(app):
-    """Issue an asset with faucet-rgb's wallet.
+    """Issue 1 NIA + 1 CFA assets with faucet-rgb's wallet.
 
-    Returns a tuple of 2, each item is id for the issued asset.
+    Returns a list of issued asset IDs.
     """
-
     global _ASSET_COUNT  # pylint: disable=global-statement
     _ASSET_COUNT += 1
     wallet = app.config["WALLET"]
@@ -267,11 +266,14 @@ def _issue_asset(app):
         amounts=[ISSUE_AMOUNT, ISSUE_AMOUNT],
         file_path=None,
     )
+    return [nia.asset_id, cfa.asset_id]
 
-    return nia.asset_id, cfa.asset_id
 
-
-def prepare_assets(app, group_name="group_1"):
+def prepare_assets(app,
+                   group_name="group_1",
+                   dist_mode=None,
+                   issue_func=None,
+                   send_amount=SEND_AMOUNT):
     """Issue (NIA, CFA) asset pair and set the config for the app.
 
     Issue ISSUE_AMOUNT units for each asset.
@@ -281,14 +283,17 @@ def prepare_assets(app, group_name="group_1"):
         app (Flask): Flask app to configure.
         group_name (str): Name for the asset group ("group_1" by default).
     """
-
-    id1, id2 = _issue_asset(app)
-    asset_list = [{"asset_id": a, "amount": SEND_AMOUNT} for a in [id1, id2]]
+    if issue_func is None:
+        issue_func = _issue_asset
+    assets = issue_func(app)
+    asset_list = [{"asset_id": a, "amount": send_amount} for a in assets]
+    if dist_mode is None:
+        dist_mode = {"mode": 1}
     app.config["ASSETS"][group_name] = {
+        "distribution": dist_mode,
         "label": f"{group_name} for the test",
         "assets": asset_list,
     }
-
     return app
 
 
@@ -376,9 +381,9 @@ def wait_refresh(wallet, online, asset=None):
     print('refreshed')
 
 
-def wait_scheduler_processing(app):
+def wait_sched_process_pending(app):
     """Wait for scheduler to process pending requests and generate blocks."""
-    print('waiting for scheduler to process pending requests...')
+    print('waiting for scheduler to process PENDING requests...')
     assert scheduler.state == STATE_RUNNING
     with app.app_context():
         deadline = time.time() + 30
@@ -391,4 +396,21 @@ def wait_scheduler_processing(app):
             if time.time() > deadline:
                 raise RuntimeError('pending requests not getting served')
             generate(1)
-    print('processed')
+    print('processed PENDING requests')
+
+
+def wait_sched_process_waiting(app):
+    """Wait for scheduler to process waiting requests."""
+    print('waiting for scheduler to process WAITING requests...')
+    assert scheduler.state == STATE_RUNNING
+    with app.app_context():
+        deadline = time.time() + 30
+        while True:
+            time.sleep(2)
+            waiting_requests = Request.query.filter(Request.status == 25)
+            if not waiting_requests.count():
+                break
+            print('waiting requests:', waiting_requests.count())
+            if time.time() > deadline:
+                raise RuntimeError('waiting requests not getting processed')
+    print('processed WAITING requests')

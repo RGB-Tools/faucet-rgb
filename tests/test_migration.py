@@ -14,7 +14,7 @@ from faucet_rgb.scheduler import scheduler
 from faucet_rgb.utils import get_logger
 from tests.utils import (add_fake_request, check_receive_asset,
                          check_requests_left, create_test_app, prepare_assets,
-                         prepare_user_wallets, wait_scheduler_processing)
+                         prepare_user_wallets, wait_sched_process_pending)
 
 
 def _app_preparation_1(app):
@@ -262,7 +262,7 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
     check_receive_asset(app, users[2], "group_2", 403)
 
     # wait for scheduler to process requests
-    wait_scheduler_processing(app)
+    wait_sched_process_pending(app)
 
     # -- restart app (no configuration changes)
     print('restarting with no configuration changes')
