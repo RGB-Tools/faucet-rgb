@@ -26,15 +26,11 @@ def batch_donation():
     with scheduler.app.app_context():
         # get configuration variables
         logger = get_logger(__name__)
-        online = current_app.config['ONLINE']
-        wallet = current_app.config['WALLET']
-        min_requests = current_app.config['MIN_REQUESTS']
-        max_wait_minutes = current_app.config['MAX_WAIT_MINUTES']
-        single_asset = current_app.config['SINGLE_ASSET_SEND']
+        cfg = current_app.config
 
         # refresh pending transfers
         try:
-            wallet.refresh(online, None, [])
+            cfg['WALLET'].refresh(cfg['ONLINE'], None, [])
         except Exception as err:  # pylint: disable=broad-exception-caught
             logger.error('error refreshing transfers: %s', repr(err))
 
@@ -46,18 +42,18 @@ def batch_donation():
         request_thresh_reached = False
         enough_time_elapsed = False
         pending_requests = Request.query.filter_by(status=20)
-        if pending_requests.count() and single_asset:
+        if pending_requests.count() and cfg['SINGLE_ASSET_SEND']:
             oldest_req = Request.query.filter_by(status=20).first()
             pending_requests = Request.query.filter(
                 Request.status == 20, Request.asset_id == oldest_req.asset_id)
         # request count against configured threshold
-        if pending_requests.count() >= min_requests:
+        if pending_requests.count() >= cfg['MIN_REQUESTS']:
             request_thresh_reached = True
         # elapsed time since oldest request
         if pending_requests.count():
             oldest_timestamp = pending_requests.first().timestamp
             if get_current_timestamp(
-            ) - oldest_timestamp >= max_wait_minutes * 60:
+            ) - oldest_timestamp >= cfg['MAX_WAIT_MINUTES'] * 60:
                 enough_time_elapsed = True
 
         if request_thresh_reached or enough_time_elapsed:
@@ -75,8 +71,7 @@ def random_distribution():
     with scheduler.app.app_context():
         # get configuration variables
         logger = get_logger(__name__)
-        date_format = current_app.config['DATE_FORMAT']
-        wallet = current_app.config['WALLET']
+        cfg = current_app.config
 
         now = datetime.now(timezone.utc)
         for group, val in current_app.config['ASSETS'].items():
@@ -86,7 +81,8 @@ def random_distribution():
             if dist_mode != DistributionMode.RANDOM:
                 continue
             req_win_close = dist_conf['params']['request_window_close']
-            req_win_close = datetime.strptime(req_win_close, date_format)
+            req_win_close = datetime.strptime(req_win_close,
+                                              cfg['DATE_FORMAT'])
             if now < req_win_close:
                 continue
 
@@ -96,7 +92,8 @@ def random_distribution():
                 reqs = Request.query.filter_by(asset_id=asset_id,
                                                status=25).all()
                 # get asset future balance (what we expect to be able to send)
-                balance = wallet.get_asset_balance(asset_id).future
+                balance = cfg['WALLET'].get_asset_balance(asset_id).future
+                count = 0
                 # choose random requests and set them to pending status
                 while balance > 0 and reqs:
                     req = random.choice(reqs)
@@ -104,7 +101,15 @@ def random_distribution():
                     db.session.commit()  # pylint: disable=no-member
                     reqs.remove(req)
                     balance -= 1
+                    count += 1
+                if count > 0:
+                    logger.info('set %s requests as pending for asset %s',
+                                count, asset_id)
                 # set remaining requests to unmet status
-                Request.query.filter_by(asset_id=asset_id,
-                                        status=25).update({'status': 45})
+                reqs_unmet = Request.query.filter_by(asset_id=asset_id,
+                                                     status=25).update(
+                                                         {'status': 45})
+                if reqs_unmet > 0:
+                    logger.info('set %s requests as unmet for asset %s',
+                                reqs_unmet, asset_id)
                 db.session.commit()  # pylint: disable=no-member

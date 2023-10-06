@@ -3,9 +3,9 @@
 import os
 import shutil
 import subprocess
-from apscheduler.schedulers import SchedulerNotRunningError
 
 import pytest
+from apscheduler.schedulers import SchedulerNotRunningError
 
 from faucet_rgb.scheduler import scheduler
 from tests.utils import create_test_app, get_test_datadir, prepare_assets

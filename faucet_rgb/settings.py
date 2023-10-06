@@ -206,7 +206,7 @@ def check_distribution(app, group_name, group_val, errors):
                                                   app.config['DATE_FORMAT'])
             if req_win_close <= req_win_open:
                 errors.append(f'request window close {err_end} not after open')
-        except ValueError as err:
+        except ValueError:
             pass
 
 

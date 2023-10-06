@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import rgb_lib
 from rgb_lib._rgb_lib.rgb_lib import TransferKind
 
-from faucet_rgb import exceptions, Request
+from faucet_rgb import Request, exceptions
 from tests.utils import (OPERATOR_HEADERS, check_receive_asset, prepare_assets,
                          prepare_user_wallets, wait_sched_process_pending)
 
@@ -108,7 +108,7 @@ def test_0_conf(get_app):
 def test_cfg_no_dist(get_app):
     """Test configuration with missing distribution key."""
     try:
-        _app = get_app(_app_prep_cfg_no_dist)
+        get_app(_app_prep_cfg_no_dist)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
         assert 'missing distribution for group' in err.errors[0]
@@ -117,7 +117,7 @@ def test_cfg_no_dist(get_app):
 def test_cfg_no_dist_mode(get_app):
     """Test configuration with missing distribution mode."""
     try:
-        _app = get_app(_app_prep_cfg_no_dist_mode)
+        get_app(_app_prep_cfg_no_dist_mode)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
         assert 'missing distribution mode' in err.errors[0]
@@ -126,7 +126,7 @@ def test_cfg_no_dist_mode(get_app):
 def test_cfg_bad_dist_mode(get_app):
     """Test configuration with unsupported distribution mode."""
     try:
-        _app = get_app(_app_prep_cfg_bad_dist_mode)
+        get_app(_app_prep_cfg_bad_dist_mode)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
         assert 'not a valid DistributionMode' in err.errors[0]
@@ -135,7 +135,7 @@ def test_cfg_bad_dist_mode(get_app):
 def test_cfg_random_no_params(get_app):
     """Test configuration for random distribution mode with no params."""
     try:
-        _app = get_app(_app_prep_cfg_random_no_params)
+        get_app(_app_prep_cfg_random_no_params)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
         assert 'missing distribution params' in err.errors[0]
@@ -144,7 +144,7 @@ def test_cfg_random_no_params(get_app):
 def test_cfg_random_bad_params(get_app):
     """Test configuration for random distribution mode with bad params."""
     try:
-        _app = get_app(_app_prep_cfg_random_bad_params)
+        get_app(_app_prep_cfg_random_bad_params)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 2
         assert all('does not match format' in e for e in err.errors)
@@ -153,7 +153,7 @@ def test_cfg_random_bad_params(get_app):
 def test_cfg_random_bad_req_win(get_app):
     """Test configuration for random distribution mode with bad params."""
     try:
-        _app = get_app(_app_prep_cfg_random_bad_req_win)
+        get_app(_app_prep_cfg_random_bad_req_win)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
         assert 'not after open' in err.errors[0]
