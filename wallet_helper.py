@@ -82,7 +82,8 @@ def entrypoint():
             sys.exit(1)
         try:
             blind_data = wallet.blind_receive(
-                None, None, None, ['rpc://localhost:3000/json-rpc'], 1)
+                None, None, None, ['rpc://localhost:3000/json-rpc'],
+                app.config['MIN_CONFIRMATIONS'])
             print(f'blinded_utxo: {blind_data.recipient_id}')
         except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception
             print(f'Error generating blind data: {err}')

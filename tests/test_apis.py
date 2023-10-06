@@ -53,7 +53,7 @@ def test_control_delete(get_app):
     # create a WAITING_COUNTERPARTY transfer + fail it
     _ = app.config['WALLET'].blind_receive(asset_id, None, 1,
                                            app.config["TRANSPORT_ENDPOINTS"],
-                                           1)
+                                           app.config["MIN_CONFIRMATIONS"])
     print('waiting for the transfer to expire...')
     time.sleep(2)
     resp = client.get(
@@ -105,7 +105,7 @@ def test_control_fail(get_app):
     # create a transfer in status WAITING_COUNTERPARTY with a 1s expiration
     _ = app.config['WALLET'].blind_receive(asset_id, None, 1,
                                            app.config["TRANSPORT_ENDPOINTS"],
-                                           1)
+                                           app.config["MIN_CONFIRMATIONS"])
     print('waiting for the transfer to expire...')
     time.sleep(2)
     asset_transfers = app.config['WALLET'].list_transfers(asset_id)
@@ -393,7 +393,7 @@ def test_control_transfers(get_app):  # pylint: disable=too-many-statements
     # 1 WAITING_COUNTERPARTY transfer
     _ = app.config['WALLET'].blind_receive(asset_id, None, 1,
                                            app.config["TRANSPORT_ENDPOINTS"],
-                                           1)
+                                           app.config["MIN_CONFIRMATIONS"])
     print('waiting for the transfer to expire...')
     time.sleep(2)
     resp = client.get(
@@ -605,7 +605,8 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
                                           app.config['FEE_RATE'])
     assert created == 1
     txid = user['wallet'].send(user['online'], recipient_map, True,
-                               app.config['FEE_RATE'], 1)
+                               app.config['FEE_RATE'],
+                               app.config['MIN_CONFIRMATIONS'])
     assert txid
     wait_refresh(wallet, app.config['ONLINE'])
     # check future balance updates once the transfer is in WAITING_CONFIRMATIONS

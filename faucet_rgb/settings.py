@@ -91,6 +91,8 @@ class Config():  # pylint: disable=too-few-public-methods
     ASSET_MIGRATION_CACHE = {}
     # date format string
     DATE_FORMAT = '%Y-%m-%dT%H:%M:%S%z'
+    # minimum number of confirmations before a transfer is considered settled
+    MIN_CONFIRMATIONS = 1
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods

@@ -163,7 +163,8 @@ def create_and_blind(config, user):
     wallet = user["wallet"]
     _ = wallet.create_utxos(user["online"], True, 1, None, config["FEE_RATE"])
     blind_data = wallet.blind_receive(None, None, None,
-                                      config["TRANSPORT_ENDPOINTS"], 1)
+                                      config["TRANSPORT_ENDPOINTS"],
+                                      config['MIN_CONFIRMATIONS'])
     return blind_data.recipient_id
 
 
@@ -306,10 +307,10 @@ def _get_test_base_app():
     app.config["NAME"] = name
     app.config["DATA_DIR"] = get_test_datadir()
 
-    # settings for regtest test environment
-    app.config["TRANSPORT_ENDPOINTS"] = TRANSPORT_ENDPOINTS
+    # network settings
     app.config["ELECTRUM_URL"] = ELECTRUM_URL
     app.config["NETWORK"] = NETWORK
+    app.config["TRANSPORT_ENDPOINTS"] = TRANSPORT_ENDPOINTS
 
     # scheduler settings (fast processing)
     app.config["MIN_REQUESTS"] = 1

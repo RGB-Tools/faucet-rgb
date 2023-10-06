@@ -21,23 +21,16 @@ def send_next_batch():
     """
     with scheduler.app.app_context():
         logger = get_logger(__name__)
-        cfg = {}
-        cfg['online'] = current_app.config['ONLINE']
-        cfg['wallet'] = current_app.config['WALLET']
-        cfg['fee_rate'] = current_app.config['FEE_RATE']
-        cfg['req_number'] = current_app.config['MIN_REQUESTS']
-        cfg['single_asset'] = current_app.config['SINGLE_ASSET_SEND']
+        cfg = current_app.config
 
-        # request selection
-        req_batch = Request.query.filter_by(status=20).slice(
-            0, cfg['req_number'])
-        if cfg['single_asset']:
+        # get requests to be processed
+        pending_reqs = Request.query.filter_by(status=20)
+        if cfg['SINGLE_ASSET_SEND']:
+            # filter for asset ID of oldest request
             oldest_req = Request.query.filter_by(status=20).first()
-            req_batch = Request.query.filter(
-                Request.status == 20,
-                Request.asset_id == oldest_req.asset_id).slice(
-                    0, cfg['req_number'])
-        reqs = req_batch.all()
+            pending_reqs = Request.query.filter(
+                Request.status == 20, Request.asset_id == oldest_req.asset_id)
+        reqs = pending_reqs.all()
 
         # get asset set
         asset_id_set = {r.asset_id for r in reqs}
@@ -45,14 +38,13 @@ def send_next_batch():
         # prepare recipient map
         recipient_map = {}
         for asset_id in asset_id_set:
-            # get list of blinded UTXOs that need to receive this asset
+            # get list of recipients that need to receive this asset
             recipient_list = []
             for req in reqs:
                 if req.asset_id == asset_id:
                     recipient_list.append(
-                        rgb_lib.Recipient(
-                            req.blinded_utxo, None, req.amount,
-                            current_app.config['TRANSPORT_ENDPOINTS']))
+                        rgb_lib.Recipient(req.blinded_utxo, None, req.amount,
+                                          cfg['TRANSPORT_ENDPOINTS']))
             recipient_map[asset_id] = recipient_list
 
         # try sending
@@ -64,8 +56,9 @@ def send_next_batch():
             db.session.commit()  # pylint: disable=no-member
 
             # send assets
-            txid = cfg['wallet'].send(cfg['online'], recipient_map, True,
-                                      cfg['fee_rate'], 1)
+            txid = cfg['WALLET'].send(cfg['ONLINE'], recipient_map, True,
+                                      cfg['FEE_RATE'],
+                                      cfg['MIN_CONFIRMATIONS'])
             logger.info('batch donation sent with TXID: %s', txid)
 
             # update status for served requests

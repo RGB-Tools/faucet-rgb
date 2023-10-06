@@ -24,7 +24,8 @@ def top_up_rgb():
         return jsonify({'error': 'unauthorized'}), 401
     wallet = current_app.config['WALLET']
     blind_data = wallet.blind_receive(
-        None, None, None, current_app.config['TRANSPORT_ENDPOINTS'], 1)
+        None, None, None, current_app.config['TRANSPORT_ENDPOINTS'],
+        current_app.config['MIN_CONFIRMATIONS'])
     return jsonify({
         'blinded_utxo': blind_data.recipient_id,
         'expiration': blind_data.expiration_timestamp
