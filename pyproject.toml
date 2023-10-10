@@ -8,6 +8,7 @@ license = 'MIT'
 [tool.poetry.dependencies]
 Flask = '^2.3.3'
 Flask-APScheduler = "^1.13.0"
+flask-migrate = "^4.0.5"
 flask-sqlalchemy = "^3.1.1"
 python = '^3.9'
 rgb-lib = '0.2.0a5'

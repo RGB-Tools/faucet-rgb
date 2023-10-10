@@ -214,7 +214,7 @@ def check_assets(app):
     """Check asset configuration is valid."""
     errors = []
     if not app.config['ASSETS']:
-        errors.append('Cannot proceed without any configured RGB asset')
+        print(' *** WARNING! no configured RGB asset ***')
     for key, val in app.config['ASSETS'].items():
         if not key:
             errors.append('empty group key')

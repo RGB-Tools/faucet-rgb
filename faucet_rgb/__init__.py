@@ -12,7 +12,7 @@ from sqlalchemy import and_
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import control, receive, reserve, tasks
-from .database import Request, db
+from .database import Request, db, migrate
 from .scheduler import scheduler
 from .settings import LOGGING, check_config, get_app
 from .utils.wallet import get_sha256_hex, init_wallet
@@ -209,8 +209,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
 
     # initialize DB
     db.init_app(app)
-    with app.app_context():
-        db.create_all()
+    migrate.init_app(app, db)
 
     create_user_migration_cache(app)
 
