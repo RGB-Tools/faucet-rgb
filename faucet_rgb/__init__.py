@@ -8,6 +8,7 @@ from logging.config import dictConfig
 
 from flask import g, request
 from flask_apscheduler import STATE_STOPPED
+from flask_migrate import upgrade
 from sqlalchemy import and_
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -210,6 +211,8 @@ def create_app(custom_get_app=None, do_init_wallet=True):
     # initialize DB
     db.init_app(app)
     migrate.init_app(app, db)
+    with app.app_context():
+        upgrade()
 
     create_user_migration_cache(app)
 
