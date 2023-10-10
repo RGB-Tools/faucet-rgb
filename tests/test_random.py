@@ -5,25 +5,18 @@ from datetime import datetime, timedelta, timezone
 
 from faucet_rgb import Request
 from faucet_rgb.utils.wallet import get_sha256_hex
-from tests.utils import (OPERATOR_HEADERS, USER_HEADERS, create_and_blind,
-                         prepare_assets, prepare_user_wallets,
-                         wait_sched_process_pending, wait_sched_process_waiting
-                         )
+from tests.utils import (
+    OPERATOR_HEADERS, USER_HEADERS, create_and_blind, prepare_assets,
+    prepare_user_wallets, random_dist_mode, receive_asset,
+    wait_sched_process_pending, wait_sched_process_waiting)
 
 
 def _app_preparation_random(app):
     """Prepare app for the first launch."""
     now = datetime.now(timezone.utc)
-    date_fmt = app.config['DATE_FORMAT']
     req_win_open = now + timedelta(seconds=30)
-    req_win_close = req_win_open + timedelta(minutes=1)
-    dist_mode = {
-        "mode": 2,
-        "params": {
-            "request_window_open": datetime.strftime(req_win_open, date_fmt),
-            "request_window_close": datetime.strftime(req_win_close, date_fmt),
-        },
-    }
+    dist_mode = random_dist_mode(app.config, now + timedelta(seconds=30),
+                                 req_win_open + timedelta(minutes=1))
     app = prepare_assets(app,
                          "group_1",
                          dist_mode=dist_mode,
@@ -81,10 +74,12 @@ def test_random(get_app):
     # check cannot request before window open + wait window open
     assert datetime.now(timezone.utc) < req_win['open']
 
-    wallet_id = get_sha256_hex(users[0]["xpub"])
-    blinded_utxo = create_and_blind(app.config, users[0])
-    resp = client.get(
-        f"/receive/asset/{wallet_id}/{blinded_utxo}",
+    resp = client.post(
+        "/receive/asset",
+        json={
+            'wallet_id': get_sha256_hex(users[0]["xpub"]),
+            'invoice': create_and_blind(app.config, users[0]),
+        },
         headers=USER_HEADERS,
     )
     assert resp.status_code == 403
@@ -97,12 +92,8 @@ def test_random(get_app):
 
     # place 3 requests
     for user in users:
-        wallet_id = get_sha256_hex(user["xpub"])
-        blinded_utxo = create_and_blind(app.config, user)
-        resp = client.get(
-            f"/receive/asset/{wallet_id}/{blinded_utxo}",
-            headers=USER_HEADERS,
-        )
+        resp = receive_asset(client, user["xpub"],
+                             create_and_blind(app.config, user))
         assert resp.status_code == 200
 
     # check requests are in waiting status (while window is still open)
@@ -119,7 +110,7 @@ def test_random(get_app):
     # wait for scheduler job to process requests
     wait_sched_process_waiting(app)
     wait_sched_process_pending(app)
-    time.sleep(5)  # give the scheduler time to copmlete the send
+    time.sleep(5)  # give the scheduler time to complete the send
 
     # check requests have been moved to served or unmet status
     with app.app_context():

@@ -7,6 +7,7 @@ import socket
 import subprocess
 import time
 import urllib
+from datetime import datetime
 
 import rgb_lib
 from flask import Flask
@@ -159,13 +160,21 @@ def check_requests_left(app, xpub, group_to_requests_left):
 
 
 def create_and_blind(config, user):
-    """Create up to 1 UTXO and return a blinded UTXO."""
+    """Create up to 1 UTXO and return an invoice with a blinded UTXO."""
     wallet = user["wallet"]
     _ = wallet.create_utxos(user["online"], True, 1, None, config["FEE_RATE"])
-    blind_data = wallet.blind_receive(None, None, None,
-                                      config["TRANSPORT_ENDPOINTS"],
-                                      config['MIN_CONFIRMATIONS'])
-    return blind_data.recipient_id
+    receive_data = wallet.blind_receive(None, None, None,
+                                        config["TRANSPORT_ENDPOINTS"],
+                                        config['MIN_CONFIRMATIONS'])
+    return receive_data.invoice
+
+
+def witness(config, user):
+    """Create up to 1 UTXO and return an invoice for a witness tx."""
+    receive_data = user["wallet"].witness_receive(
+        None, None, None, config["TRANSPORT_ENDPOINTS"],
+        config['MIN_CONFIRMATIONS'])
+    return receive_data.invoice
 
 
 def add_fake_request(  # pylint: disable=too-many-arguments
@@ -184,12 +193,14 @@ def add_fake_request(  # pylint: disable=too-many-arguments
     wallet_id = user["xpub"]
     if hash_wallet_id:
         wallet_id = get_sha256_hex(wallet_id)
-    blinded_utxo = create_and_blind(app.config, user)
+    invoice = create_and_blind(app.config, user)
+    invoice_data = rgb_lib.Invoice(invoice).invoice_data()
     with app.app_context():
         db.session.add(
-            Request(wallet_id, blinded_utxo, asset_group, asset_id, amount))
+            Request(wallet_id, invoice_data.recipient_id, invoice, asset_group,
+                    asset_id, amount))
         req = Request.query.filter(Request.wallet_id == wallet_id,
-                                   Request.blinded_utxo == blinded_utxo,
+                                   Request.invoice == invoice,
                                    Request.asset_group == asset_group,
                                    Request.status == 10)
         assert req.count() == 1
@@ -200,20 +211,32 @@ def add_fake_request(  # pylint: disable=too-many-arguments
         db.session.commit()
 
 
+def receive_asset(client, xpub, invoice):
+    """Call the /receive/asset API with the provided data."""
+    return client.post(
+        "/receive/asset",
+        json={
+            'wallet_id': get_sha256_hex(xpub),
+            'invoice': invoice,
+        },
+        headers=USER_HEADERS,
+    )
+
+
 def check_receive_asset(app,
                         user,
                         group_to_request,
                         expected_status_code=200,
                         expected_asset_id_list=None):
     """Check the /receive/asset endpoint."""
-    wallet_id = get_sha256_hex(user["xpub"])
-    blinded_utxo = create_and_blind(app.config, user)
-    group_query = "" if group_to_request is None else f"?asset_group={group_to_request}"
+    payload = {
+        'wallet_id': get_sha256_hex(user["xpub"]),
+        'invoice': create_and_blind(app.config, user)
+    }
+    if group_to_request:
+        payload['asset_group'] = group_to_request
     client = app.test_client()
-    resp = client.get(
-        f"/receive/asset/{wallet_id}/{blinded_utxo}{group_query}",
-        headers=USER_HEADERS,
-    )
+    resp = client.post("/receive/asset", json=payload, headers=USER_HEADERS)
     assert resp.status_code == expected_status_code
     if resp.status_code == 200 and expected_asset_id_list is not None:
         assert resp.json["asset"]["asset_id"] in expected_asset_id_list
@@ -371,6 +394,18 @@ def create_test_app(config=None, custom_app_prep=None):
     return create_app(_custom_get_app, False)
 
 
+def random_dist_mode(config, req_win_open, req_win_close):
+    """Return dist_mode dict for random distribution."""
+    date_fmt = config['DATE_FORMAT']
+    return {
+        "mode": 2,
+        "params": {
+            "request_window_open": datetime.strftime(req_win_open, date_fmt),
+            "request_window_close": datetime.strftime(req_win_close, date_fmt),
+        },
+    }
+
+
 def wait_refresh(wallet, online, asset=None):
     """Wait for refresh to return true (a transfer has changed)."""
     print('waiting for refresh to return True...')
@@ -380,6 +415,18 @@ def wait_refresh(wallet, online, asset=None):
             raise RuntimeError('refresh not returning True')
         time.sleep(1)
     print('refreshed')
+
+
+def refresh_and_check_settled(client, config, asset_id):
+    """Check that the transfer is settled."""
+    resp = client.get(f"/control/refresh/{asset_id}", headers=OPERATOR_HEADERS)
+    assert resp.status_code == 200
+    assert resp.json['result'] is True
+    asset_transfers = config['WALLET'].list_transfers(asset_id)
+    transfer = [
+        t for t in asset_transfers if t.kind == rgb_lib.TransferKind.SEND
+    ][0]
+    assert transfer.status == rgb_lib.TransferStatus.SETTLED
 
 
 def wait_sched_process_pending(app):

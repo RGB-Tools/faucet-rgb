@@ -2,12 +2,10 @@
 
 from datetime import datetime, timedelta, timezone
 
-import rgb_lib
-from rgb_lib._rgb_lib.rgb_lib import TransferKind
-
 from faucet_rgb import Request, exceptions
-from tests.utils import (OPERATOR_HEADERS, check_receive_asset, prepare_assets,
-                         prepare_user_wallets, wait_sched_process_pending)
+from tests.utils import (
+    check_receive_asset, prepare_assets, prepare_user_wallets,
+    random_dist_mode, refresh_and_check_settled, wait_sched_process_pending)
 
 
 def _app_prep_cfg_no_dist(app):
@@ -41,16 +39,9 @@ def _app_prep_cfg_random_no_params(app):
 def _app_prep_cfg_random_bad_params(app):
     """Prepare app with random distribution mode but bad params."""
     now = datetime.now(timezone.utc)
-    date_fmt = app.config['DATE_FORMAT'][:-2]  # drop UTC offset
-    req_win_open = now + timedelta(days=1)
-    req_win_close = now - timedelta(days=1)
-    dist_mode = {
-        "mode": 2,
-        "params": {
-            "request_window_open": datetime.strftime(req_win_open, date_fmt),
-            "request_window_close": datetime.strftime(req_win_close, date_fmt),
-        },
-    }
+    req_win_open = now + timedelta(seconds=30)
+    dist_mode = random_dist_mode(app.config, now + timedelta(seconds=30),
+                                 req_win_open + timedelta(minutes=1))
     app = prepare_assets(app, "group_1", dist_mode=dist_mode)
     return app
 
@@ -93,16 +84,8 @@ def test_0_conf(get_app):
         request = requests.one()
     asset_id = request.asset_id
     wait_sched_process_pending(app)
-    # check send transfer is settled after one refresh with no mining
-    resp = client.get(
-        f"/control/refresh/{asset_id}",
-        headers=OPERATOR_HEADERS,
-    )
-    assert resp.status_code == 200
-    assert resp.json['result'] is True
-    asset_transfers = app.config['WALLET'].list_transfers(asset_id)
-    transfer = [t for t in asset_transfers if t.kind == TransferKind.SEND][0]
-    assert transfer.status == rgb_lib.TransferStatus.SETTLED
+    # check send transfer is settled after one refresh (no mining)
+    refresh_and_check_settled(client, app.config, asset_id)
 
 
 def test_cfg_no_dist(get_app):

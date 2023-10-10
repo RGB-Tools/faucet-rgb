@@ -1,8 +1,10 @@
 """Faucet blueprint to top-up funds."""
 
+import json
 import random
 from datetime import datetime, timezone
 
+import rgb_lib
 from flask import Blueprint, current_app, jsonify, request
 
 from faucet_rgb.settings import DistributionMode
@@ -18,7 +20,7 @@ bp = Blueprint('receive', __name__, url_prefix='/receive')
 def config(wallet_id):
     """Return current faucet configuration.
 
-    wallet_id must be a valid XPub
+    wallet_id must be a SHA256 hash
 
     returns:
     - faucet name
@@ -51,28 +53,40 @@ def config(wallet_id):
     return jsonify({'name': current_app.config["NAME"], 'groups': groups})
 
 
-@bp.route('/asset/<wallet_id>/<blinded_utxo>', methods=['GET'])
-def request_rgb_asset(wallet_id, blinded_utxo):
-    """Request sending configured amount to the provided blinded UTXO.
+@bp.route('/asset', methods=['POST'])
+def request_rgb_asset():
+    """Request sending configured amount to the provided invoice.
 
-    - wallet_id must be a valid XPub
-    - an optional asset_group can be requested via query parameter
+    body data:
+    - wallet_id: a sha256 hash
+    - invoice: a valid RGB invoice
+    - asset_group: (optional) group name to be used
+
     - a wallet_id cannot request from the same asset group more than once
-    - each request is checked before saving to db to make sure it can be sent
-    - valid requests are saved, processing is tried immediately in a thread
+    - each request is checked before saving to db to make sure it is allowed
+    - valid requests are saved, processing is handled by scheduler jobs
     """
     logger = get_logger(__name__)
     auth = request.headers.get('X-Api-Key')
     if auth != current_app.config['API_KEY']:
         return jsonify({'error': 'unauthorized'}), 401
 
+    # get request data
+    data = json.loads(request.data)
+
     # check wallet_id is valid
-    if not is_walletid_valid(wallet_id):
+    if not is_walletid_valid(data['wallet_id']):
         return jsonify({'error': 'invalid wallet ID'}), 403
+
+    # parse invoice
+    try:
+        invoice = rgb_lib.Invoice(data['invoice'])
+    except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
+        return jsonify({'error': 'invalid invoice'}), 403
 
     # choose asset group
     configured_assets = current_app.config["ASSETS"]
-    asset_group = request.args.get('asset_group')
+    asset_group = data.get('asset_group')
     if asset_group is not None:
         if asset_group not in configured_assets:
             return jsonify({'error': 'Invalid asset group'}), 404
@@ -84,7 +98,7 @@ def request_rgb_asset(wallet_id, blinded_utxo):
     asset = random.choice(list(configured_assets[asset_group]['assets']))
 
     # check if request is allowed
-    allowed = _is_request_allowed(wallet_id, asset_group)
+    allowed = _is_request_allowed(data['wallet_id'], asset_group)
     if not allowed:
         return jsonify({
             'error':
@@ -97,24 +111,25 @@ def request_rgb_asset(wallet_id, blinded_utxo):
     if is_mig_request:
         # wallet is entitled to a migration > detect the asset to be sent
         mig_cache = current_app.config['ASSET_MIGRATION_CACHE']
-        asset = mig_cache[asset_group].get(wallet_id)
+        asset = mig_cache[asset_group].get(data['wallet_id'])
         # remove the user (and possibly the whole group) from migration cache
-        del mig_cache[asset_group][wallet_id]
+        del mig_cache[asset_group][data['wallet_id']]
         if not mig_cache[asset_group]:
             del mig_cache[asset_group]
 
-    return _request_rgb_asset_core(wallet_id, blinded_utxo, asset_group, asset,
-                                   logger)
+    return _request_rgb_asset_core(data['wallet_id'], invoice, asset_group,
+                                   asset, logger)
 
 
-def _request_rgb_asset_core(wallet_id, blinded_utxo, asset_group, asset,
-                            logger):
-
+def _request_rgb_asset_core(wallet_id, invoice, asset_group, asset, logger):
     # add request to db so max requests check works right away (no double req)
     # pylint: disable=no-member
-    db.session.add(Request(wallet_id, blinded_utxo, asset_group, None, None))
+    recipient_id = invoice.invoice_data().recipient_id
+    invoice_str = invoice.invoice_string()
+    db.session.add(
+        Request(wallet_id, recipient_id, invoice_str, asset_group, None, None))
     req = Request.query.filter(Request.wallet_id == wallet_id,
-                               Request.blinded_utxo == blinded_utxo,
+                               Request.invoice == invoice_str,
                                Request.asset_group == asset_group,
                                Request.status == 10)
     assert req.count() == 1

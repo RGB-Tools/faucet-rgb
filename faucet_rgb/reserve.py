@@ -18,7 +18,7 @@ def top_up_btc():
 
 @bp.route('/top_up_rgb', methods=['GET'])
 def top_up_rgb():
-    """Return a blinded UTXO to top-up the faucet's RGB asset reserve."""
+    """Return an RGB invoice to top-up the faucet's RGB asset reserve."""
     auth = request.headers.get('X-Api-Key')
     if auth != current_app.config['API_KEY_OPERATOR']:
         return jsonify({'error': 'unauthorized'}), 401
@@ -27,6 +27,6 @@ def top_up_rgb():
         None, None, None, current_app.config['TRANSPORT_ENDPOINTS'],
         current_app.config['MIN_CONFIRMATIONS'])
     return jsonify({
-        'blinded_utxo': blind_data.recipient_id,
+        'invoice': blind_data.invoice,
         'expiration': blind_data.expiration_timestamp
     })

@@ -4,7 +4,7 @@ import rgb_lib
 from flask import current_app
 from flask_apscheduler import APScheduler
 
-from faucet_rgb.utils import get_logger
+from faucet_rgb.utils import get_logger, get_recipient
 
 from .database import Request, db
 
@@ -42,9 +42,8 @@ def send_next_batch():
             recipient_list = []
             for req in reqs:
                 if req.asset_id == asset_id:
-                    recipient_list.append(
-                        rgb_lib.Recipient(req.blinded_utxo, None, req.amount,
-                                          cfg['TRANSPORT_ENDPOINTS']))
+                    recipient = get_recipient(req.invoice, req.amount, cfg)
+                    recipient_list.append(recipient)
             recipient_map[asset_id] = recipient_list
 
         # try sending

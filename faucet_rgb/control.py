@@ -132,7 +132,7 @@ def list_requests():
     - 'status'
     - 'asset_group'
     - 'asset_id'
-    - 'blinded_utxo'
+    - 'recipient_id'
     - 'wallet_id'
 
     If no filter is provided, all requests in status 20 are returned
@@ -143,11 +143,11 @@ def list_requests():
 
     asset_group = request.args.get('asset_group')
     asset_id = request.args.get('asset_id')
-    blinded_utxo = request.args.get('blinded_utxo')
+    recipient_id = request.args.get('recipient_id')
     status = request.args.get('status')
     wallet_id = request.args.get('wallet_id')
     if all(a is None
-           for a in [asset_group, asset_id, blinded_utxo, status, wallet_id]):
+           for a in [asset_group, asset_id, recipient_id, status, wallet_id]):
         status = 20
 
     reqs = Request.query
@@ -155,8 +155,8 @@ def list_requests():
         reqs = reqs.filter_by(asset_group=asset_group)
     if asset_id:
         reqs = reqs.filter_by(asset_id=asset_id)
-    if blinded_utxo:
-        reqs = reqs.filter_by(blinded_utxo=blinded_utxo)
+    if recipient_id:
+        reqs = reqs.filter_by(recipient_id=recipient_id)
     if status:
         reqs = reqs.filter_by(status=status)
     if wallet_id:
@@ -169,7 +169,8 @@ def list_requests():
             'timestamp': req.timestamp,
             'status': req.status,
             'wallet_id': req.wallet_id,
-            'blinded_utxo': req.blinded_utxo,
+            'recipient_id': req.recipient_id,
+            'invoice': req.invoice,
             'asset_group': req.asset_group,
             'asset_id': req.asset_id,
             'amount': req.amount,

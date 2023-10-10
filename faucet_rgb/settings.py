@@ -33,7 +33,7 @@ class Config():  # pylint: disable=too-few-public-methods
     ASSETS = {}
     # if true, adjust the WSGI environ to use X-Forwarded-* headers
     BEHIND_PROXY = False
-    # list of transport endpoints
+    # list of transport endpoints, for invoices created by the faucet
     # see https://github.com/RGB-Tools/rgb-http-json-rpc for the spec
     # see https://github.com/grunch/rgb-proxy-server for the implementation
     TRANSPORT_ENDPOINTS = ['rpc://proxy.iriswallet.com/0.2/json-rpc']
@@ -93,6 +93,8 @@ class Config():  # pylint: disable=too-few-public-methods
     DATE_FORMAT = '%Y-%m-%dT%H:%M:%S%z'
     # minimum number of confirmations before a transfer is considered settled
     MIN_CONFIRMATIONS = 1
+    # amount in satoshi for sending witness txs
+    AMOUNT_SAT = 1000
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods

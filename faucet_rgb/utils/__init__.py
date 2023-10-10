@@ -3,6 +3,7 @@
 import logging
 import time
 
+import rgb_lib
 from flask import current_app
 
 
@@ -55,3 +56,24 @@ def get_asset_dict(assets):
                     'attachment_id': attachment_id,
                 })
     return asset_dict
+
+
+def get_recipient(invoice, amount, cfg):
+    """Return a recipient for the given invoice."""
+    invoice_data = rgb_lib.Invoice(invoice).invoice_data()
+    recipient_id = invoice_data.recipient_id
+    # detect if blinded UTXO or script (witness tx)
+    blinded_utxo = True
+    try:
+        rgb_lib.BlindedUtxo(recipient_id)
+    except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
+        blinded_utxo = False
+    # create Recipient
+    if blinded_utxo:
+        recipient = rgb_lib.Recipient(recipient_id, None, amount,
+                                      invoice_data.transport_endpoints)
+    else:
+        script_data = rgb_lib.ScriptData(recipient_id, cfg['AMOUNT_SAT'], None)
+        recipient = rgb_lib.Recipient(None, script_data, amount,
+                                      invoice_data.transport_endpoints)
+    return recipient

@@ -18,29 +18,32 @@ STATUS_MAP = {
 }
 
 
-class Request(db.Model):  # pylint: disable=too-few-public-methods
+class Request(db.Model):  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Request model."""
     idx = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.Integer, nullable=False)
     status = db.Column(db.Integer, nullable=False)
     wallet_id = db.Column(db.String(256), nullable=False)
-    blinded_utxo = db.Column(db.String(256), nullable=False)
+    recipient_id = db.Column(db.String(256), nullable=False)
+    invoice = db.Column(db.String(256), nullable=False)
     asset_group = db.Column(db.String(256), nullable=False)
     asset_id = db.Column(db.String(256), nullable=True)
     amount = db.Column(db.Integer, nullable=True)
 
     # pylint: disable=too-many-arguments
-    def __init__(self, wallet_id, blinded_utxo, asset_group, asset_id, amount):
+    def __init__(self, wallet_id, recipient_id, invoice, asset_group, asset_id,
+                 amount):
         # pylint: disable=too-many-arguments
         self.timestamp = get_current_timestamp()
         self.status = 10
         self.wallet_id = wallet_id
-        self.blinded_utxo = blinded_utxo
+        self.recipient_id = recipient_id
+        self.invoice = invoice
         self.asset_group = asset_group
         self.asset_id = asset_id
         self.amount = amount
 
     def __str__(self):
-        return (f'{STATUS_MAP[self.status]} '
-                f'{self.timestamp} {self.wallet_id} {self.blinded_utxo} '
+        return (f'{STATUS_MAP[self.status]} {self.timestamp} '
+                f'{self.wallet_id} {self.recipient_id} {self.invoice} '
                 f'{self.asset_group} {self.asset_id} {self.amount}')

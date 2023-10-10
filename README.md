@@ -207,6 +207,21 @@ To test the development server (`<wallet_id>` needs to be a valid xpub):
 curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 ```
 
+### Database migration
+Migrations are handles via `flask-migrate`.
+
+To modify the DB structure:
+- change the DB (database.py)
+- setup a minimal faucet configuration in `instance/config.py`
+    - NAME
+    - XPUB (doesn't need to have funds)
+    - MNEMONIC (doesn't need to have funds)
+    - ASSETS (empty dict)
+- run `poetry run flask --app faucet_rgb db migrate -m "<comment>"`
+- check the generated migration file (Alembic is not always able to detect
+  every change to models)
+- commit the DB changes along with the generated migration file
+
 ## Production
 
 To install the dependencies excluding the dev group:

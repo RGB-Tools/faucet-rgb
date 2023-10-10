@@ -5,15 +5,14 @@ import time
 import uuid
 
 import rgb_lib
-from rgb_lib._rgb_lib.rgb_lib import TransferKind
 
 from faucet_rgb import Request, scheduler
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
     BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
-    add_fake_request, check_receive_asset, check_requests_left,
-    create_and_blind, generate, prepare_user_wallets, wait_refresh,
-    wait_sched_process_pending)
+    add_fake_request, receive_asset, check_receive_asset, check_requests_left,
+    refresh_and_check_settled, create_and_blind, generate,
+    prepare_user_wallets, wait_refresh, wait_sched_process_pending, witness)
 
 
 def test_control_assets(get_app):
@@ -92,10 +91,7 @@ def test_control_fail(get_app):
     assert res.status_code == 401
 
     # return False is no transfer has changed
-    resp = client.get(
-        api,
-        headers=OPERATOR_HEADERS,
-    )
+    resp = client.get(api, headers=OPERATOR_HEADERS)
     assert resp.status_code == 200
     assert resp.json['result'] is False
 
@@ -155,9 +151,7 @@ def test_control_refresh(get_app):
     user = prepare_user_wallets(app, 1)[0]
     check_receive_asset(app, user, None, 200)
     with app.app_context():
-        requests = Request.query
-        assert requests.count() == 1
-        request = requests.one()
+        request = Request.query.one()
     asset_id = request.asset_id
     wait_sched_process_pending(app)
     resp = client.get(
@@ -167,19 +161,13 @@ def test_control_refresh(get_app):
     assert resp.status_code == 200
     assert resp.json['result'] is False
     asset_transfers = app.config['WALLET'].list_transfers(asset_id)
-    transfer = [t for t in asset_transfers if t.kind == TransferKind.SEND][0]
+    transfer = [
+        t for t in asset_transfers if t.kind == rgb_lib.TransferKind.SEND
+    ][0]
     assert transfer.status == rgb_lib.TransferStatus.WAITING_CONFIRMATIONS
     # mine a block + refresh the transfer + check it's now settled
     generate(1)
-    resp = client.get(
-        f"{api}/{asset_id}",
-        headers=OPERATOR_HEADERS,
-    )
-    assert resp.status_code == 200
-    assert resp.json['result'] is True
-    asset_transfers = app.config['WALLET'].list_transfers(asset_id)
-    transfer = [t for t in asset_transfers if t.kind == TransferKind.SEND][0]
-    assert transfer.status == rgb_lib.TransferStatus.SETTLED
+    refresh_and_check_settled(client, app.config, asset_id)
 
 
 def test_control_requests(get_app):  # pylint: disable=too-many-statements
@@ -279,16 +267,16 @@ def test_control_requests(get_app):  # pylint: disable=too-many-statements
         r.get('asset_id') == req.asset_id for r in resp.json['requests'])
     assert all(r.get('amount') == req.amount for r in resp.json['requests'])
 
-    # filter by blinded UTXO
+    # filter by recipient ID
     req = random.choice(all_reqs)
     resp = client.get(
-        f"{api}?blinded_utxo={req.blinded_utxo}",
+        f"{api}?recipient_id={req.recipient_id}",
         headers=OPERATOR_HEADERS,
     )
     assert resp.status_code == 200
     assert len(resp.json['requests']) == 1
     assert all(
-        r.get('blinded_utxo') == req.blinded_utxo
+        r.get('recipient_id') == req.recipient_id
         for r in resp.json['requests'])
     assert all(r.get('amount') == req.amount for r in resp.json['requests'])
 
@@ -452,40 +440,40 @@ def test_control_unspents(get_app):
 
 
 def test_receive_asset(get_app):
-    """Test /receive/asset/<wallet_id>/<blinded_utxo> endpoint."""
+    """Test /receive/asset endpoint."""
     api = '/receive/asset'
     app = get_app()
     client = app.test_client()
 
     # auth failure
-    res = client.get(f"{api}/wallet_id/blinded_utxo", headers=BAD_HEADERS)
+    res = client.post(api, headers=BAD_HEADERS)
+    assert res.status_code == 401
+    # with malformed body
+    res = client.post(api, json={'bad': 'data'}, headers=BAD_HEADERS)
     assert res.status_code == 401
 
     user = prepare_user_wallets(app, 1)[0]
+    wallet_id = get_sha256_hex(user["xpub"])
 
     # check requests with xPub as wallet ID are denied
-    wallet_id = user["xpub"]
-    blinded_utxo = create_and_blind(app.config, user)
-    resp = client.get(
-        f"{api}/{wallet_id}/{blinded_utxo}",
+    resp = client.post(
+        api,
+        json={
+            'wallet_id': user["xpub"],
+            'invoice': create_and_blind(app.config, user),
+        },
         headers=USER_HEADERS,
     )
     assert resp.status_code == 403
 
     # standard request
     scheduler.pause()
-    wallet_id = get_sha256_hex(user["xpub"])
-    blinded_utxo = create_and_blind(app.config, user)
-    resp = client.get(
-        f"{api}/{wallet_id}/{blinded_utxo}",
-        headers=USER_HEADERS,
-    )
+    resp = receive_asset(client, user["xpub"],
+                         create_and_blind(app.config, user))
     assert resp.status_code == 200
     asset = resp.json["asset"]
     with app.app_context():
-        requests = Request.query
-        assert requests.count() == 1
-        request = requests.one()
+        request = Request.query.one()
     assert request.status == 20
     asset_id = request.asset_id
     assert asset["asset_id"] == asset_id
@@ -501,6 +489,52 @@ def test_receive_asset(get_app):
     with app.app_context():
         request = Request.query.filter_by(idx=request.idx).one()
     assert request.status == 40
+
+    # request from an inexistent asset_group
+    resp = client.post(
+        api,
+        json={
+            'wallet_id': wallet_id,
+            'invoice': create_and_blind(app.config, user),
+            'asset_group': 'inexistent'
+        },
+        headers=USER_HEADERS,
+    )
+    assert resp.status_code == 404
+    assert resp.json['error'] == 'Invalid asset group'
+
+
+def test_receive_asset_witness(get_app):
+    """Test /receive/asset endpoint with a witness transfer."""
+    api = '/receive/asset'
+    app = get_app()
+    client = app.test_client()
+
+    user = prepare_user_wallets(app, 1)[0]
+    wallet_id = get_sha256_hex(user["xpub"])
+
+    # prepare 2 colorable UTXOs: 1 for BTC input (witness) + 1 for RGB change
+    app.config['WALLET'].create_utxos(app.config['ONLINE'], True, 2, None,
+                                      app.config['FEE_RATE'])
+
+    # request using a witness tx invoice
+    invoice = witness(app.config, user)
+    resp = receive_asset(client, user["xpub"], invoice)
+    assert resp.status_code == 200
+    with app.app_context():
+        request = Request.query.filter_by(invoice=invoice).one()
+    assert request.status == 20
+    assert request.recipient_id == rgb_lib.Invoice(
+        invoice).invoice_data().recipient_id
+    wait_sched_process_pending(app)
+    time.sleep(5)  # give the scheduler time to complete the send
+    user['wallet'].refresh(user['online'], None, [])
+    generate(1)
+    user['wallet'].refresh(user['online'], None, [])
+    assets = user['wallet'].list_assets([])
+    assert any([assets.nia, assets.cfa])
+    unspents = user['wallet'].list_unspents(user['online'], False)
+    assert len(unspents) == 2  # 1 funding + 1 received (witness)
 
 
 def test_receive_config(get_app):
@@ -570,12 +604,8 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
     user = prepare_user_wallets(app, 1)[0]
 
     # send some assets from the faucet to the user wallet
-    wallet_id = get_sha256_hex(user["xpub"])
-    blinded_utxo = create_and_blind(app.config, user)
-    resp = client.get(
-        f"/receive/asset/{wallet_id}/{blinded_utxo}",
-        headers=USER_HEADERS,
-    )
+    resp = receive_asset(client, user["xpub"],
+                         create_and_blind(app.config, user))
     assert resp.status_code == 200
     asset = resp.json["asset"]
     asset_id = asset['asset_id']
@@ -593,12 +623,13 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
     )
     assert resp.status_code == 200
     assert 'expiration' in resp.json
-    blinded_utxo = resp.json['blinded_utxo']
+    invoice = resp.json['invoice']
+    invoice_data = rgb_lib.Invoice(invoice).invoice_data()
     amount = 1
     recipient_map = {
         asset_id: [
-            rgb_lib.Recipient(blinded_utxo, None, amount,
-                              app.config['TRANSPORT_ENDPOINTS']),
+            rgb_lib.Recipient(invoice_data.recipient_id, None, amount,
+                              invoice_data.transport_endpoints),
         ]
     }
     created = user['wallet'].create_utxos(user['online'], True, 1, None,
