@@ -30,8 +30,7 @@ def _issue_asset(wallet, online, args):
         asset = wallet.issue_asset_nia(online, args.ticker, args.name,
                                        args.precision, args.amounts)
     elif args.schema.lower() == 'cfa':
-        _confirm_summary(args,
-                         common + ['description', 'parent_id', 'file_path'])
+        _confirm_summary(args, common + ['description', 'file_path'])
         asset = wallet.issue_asset_cfa(
             online, args.name, args.description, args.precision, args.amounts,
             args.file_path if args.file_path else None)

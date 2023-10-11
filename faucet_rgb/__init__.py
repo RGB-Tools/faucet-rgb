@@ -28,8 +28,7 @@ def print_assets_and_quit(assets, asset_id):
     print('List of available CFA assets:')
     for asset in assets.cfa:
         print(' -', asset.asset_id, asset.name, asset.description,
-              asset.precision, asset.parent_id, asset.data_paths,
-              asset.balance)
+              asset.precision, asset.data_paths, asset.balance)
     print(f'Cannot proceed: configured asset with id "{asset_id}" not found')
     sys.exit(1)
 

@@ -133,13 +133,10 @@ def _request_rgb_asset_core(wallet_id, blinded_utxo, asset_group, asset,
         'name': rgb_asset.name,
         'precision': rgb_asset.precision,
         'description': None,
-        'parent_id': None,
         'ticker': None,
     }
     if hasattr(rgb_asset, 'description'):
         asset_data['description'] = rgb_asset.description
-    if hasattr(rgb_asset, 'parent_id'):
-        asset_data['parent_id'] = rgb_asset.parent_id
     if hasattr(rgb_asset, 'ticker'):
         asset_data['ticker'] = rgb_asset.ticker
 

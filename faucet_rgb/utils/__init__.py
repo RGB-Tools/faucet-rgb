@@ -45,8 +45,6 @@ def get_asset_dict(assets):
             asset_dict[asset.asset_id]['ticker'] = asset.ticker
         if hasattr(asset, 'description'):
             asset_dict[asset.asset_id]['description'] = asset.description
-        if hasattr(asset, 'parent_id'):
-            asset_dict[asset.asset_id]['parent_id'] = asset.parent_id
         if hasattr(asset, 'data_paths'):
             for data_path in asset.data_paths:
                 path_list = asset_dict[asset.asset_id].setdefault(
