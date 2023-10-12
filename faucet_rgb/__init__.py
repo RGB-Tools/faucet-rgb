@@ -166,29 +166,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
     # configuration checks
     check_config(app, log_dir)
 
-    # configure logging
-    LOGGING['handlers']['file']['filename'] = app.config['LOG_FILENAME']
-    LOGGING['handlers']['file_sched']['filename'] = app.config[
-        'LOG_FILENAME_SCHED']
-    LOGGING['handlers']['console']['level'] = app.config['LOG_LEVEL_CONSOLE']
-    LOGGING['handlers']['file']['level'] = app.config['LOG_LEVEL_FILE']
-    dictConfig(LOGGING)
-
     validate_migration_map(app)
-
-    # pylint: disable=no-member
-    @app.before_request
-    def log_request():
-        g.request_id = uuid.uuid4()
-        app.logger.info('> %s %s %s', g.get("request_id"), request.method,
-                        request.full_path)
-
-    @app.after_request
-    def log_response(response):
-        app.logger.info('< %s %s', g.get("request_id"), response.status)
-        return response
-
-    # pylint: enable=no-member
 
     # initialize the wallet
     if do_init_wallet:
@@ -212,6 +190,28 @@ def create_app(custom_get_app=None, do_init_wallet=True):
     migrate.init_app(app, db)
     with app.app_context():
         upgrade()
+
+    # configure logging (needs to be after migration as alembic resets it)
+    LOGGING['handlers']['file']['filename'] = app.config['LOG_FILENAME']
+    LOGGING['handlers']['file_sched']['filename'] = app.config[
+        'LOG_FILENAME_SCHED']
+    LOGGING['handlers']['console']['level'] = app.config['LOG_LEVEL_CONSOLE']
+    LOGGING['handlers']['file']['level'] = app.config['LOG_LEVEL_FILE']
+    dictConfig(LOGGING)
+
+    # pylint: disable=no-member
+    @app.before_request
+    def log_request():
+        g.request_id = uuid.uuid4()
+        app.logger.info('> %s %s %s', g.get("request_id"), request.method,
+                        request.full_path)
+
+    @app.after_request
+    def log_response(response):
+        app.logger.info('< %s %s', g.get("request_id"), response.status)
+        return response
+
+    # pylint: enable=no-member
 
     create_user_migration_cache(app)
 
