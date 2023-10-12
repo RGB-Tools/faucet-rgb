@@ -462,3 +462,29 @@ def wait_sched_process_waiting(app):
             if time.time() > deadline:
                 raise RuntimeError('waiting requests not getting processed')
     print('processed WAITING requests')
+
+
+def wait_sched_create_utxos(app):
+    """Wait for scheduler to create new UTXOs."""
+    assert scheduler.state == STATE_RUNNING
+    print('waiting for scheduler to create UTXOs...')
+    unspents = app.config['WALLET'].list_unspents(app.config['ONLINE'], False)
+    starting_unspents = len(unspents)
+    with app.app_context():
+        deadline = time.time() + 30
+        while True:
+            time.sleep(2)
+            unspents = app.config['WALLET'].list_unspents(
+                app.config['ONLINE'], False)
+            if len(unspents) > starting_unspents:
+                break
+            if time.time() > deadline:
+                raise RuntimeError('pending requests not getting served')
+            # generate(1)
+    print('new UTXOs created')
+
+
+def get_spare_utxos(config):
+    """Return the list of spare colorable UTXOs."""
+    unspents = config['WALLET'].list_unspents(config['ONLINE'], False)
+    return [u for u in unspents if u.utxo.colorable and not u.rgb_allocations]

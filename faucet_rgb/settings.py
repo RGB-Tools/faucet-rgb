@@ -95,6 +95,10 @@ class Config():  # pylint: disable=too-few-public-methods
     MIN_CONFIRMATIONS = 1
     # amount in satoshi for sending witness txs
     AMOUNT_SAT = 1000
+    # number of spare colorable UTXOS to keep
+    SPARE_UTXO_NUM = 5
+    # threshold for creating new colorable UTXOS
+    SPARE_UTXO_THRESH = 2
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods

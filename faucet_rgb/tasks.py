@@ -1,8 +1,10 @@
 """Scheduler tasks module."""
 
+import contextlib
 import random
 from datetime import datetime, timezone
 
+import rgb_lib
 from flask import current_app
 
 from faucet_rgb.settings import DistributionMode
@@ -37,6 +39,19 @@ def batch_donation():
         # reset status for requests left being processed to "pending"
         Request.query.filter_by(status=30).update({'status': 20})
         db.session.commit()  # pylint: disable=no-member
+
+        # make sure colorable UTXOs are available
+        unspents = cfg['WALLET'].list_unspents(cfg['ONLINE'], False)
+        spare_utxos = [
+            u for u in unspents if u.utxo.colorable and not u.rgb_allocations
+        ]
+        if len(spare_utxos) < cfg['SPARE_UTXO_THRESH']:
+            with contextlib.suppress(
+                    rgb_lib.RgbLibError.AllocationsAlreadyAvailable):
+                created = cfg['WALLET'].create_utxos(cfg['ONLINE'], True,
+                                                     cfg['SPARE_UTXO_NUM'],
+                                                     None, cfg["FEE_RATE"])
+                logger.info('%s UTXOs created', created)
 
         # checks
         request_thresh_reached = False
