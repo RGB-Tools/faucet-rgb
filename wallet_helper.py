@@ -91,5 +91,5 @@ def entrypoint():
 
     if args.unspents:
         rp('\nUnspents:')
-        unspent_dict = utils.wallet.get_unspent_dict(wallet, online)
+        unspent_dict = utils.wallet.get_unspent_list(wallet, online)
         rp(unspent_dict)

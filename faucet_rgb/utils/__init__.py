@@ -37,7 +37,8 @@ def get_asset_dict(assets):
         asset_dict[asset.asset_id] = {
             'balance': {
                 'settled': asset.balance.settled,
-                'future': asset.balance.future
+                'future': asset.balance.future,
+                'spendable': asset.balance.spendable,
             },
             'name': asset.name,
             'precision': asset.precision,

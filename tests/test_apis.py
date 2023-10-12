@@ -10,9 +10,10 @@ from faucet_rgb import Request, scheduler
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
     BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
-    add_fake_request, receive_asset, check_receive_asset, check_requests_left,
-    refresh_and_check_settled, create_and_blind, generate,
-    prepare_user_wallets, wait_refresh, wait_sched_process_pending, witness)
+    add_fake_request, check_receive_asset, check_requests_left,
+    create_and_blind, generate, prepare_user_wallets, receive_asset,
+    refresh_and_check_settled, wait_refresh, wait_sched_process_pending,
+    witness)
 
 
 def test_control_assets(get_app):
@@ -484,6 +485,7 @@ def test_receive_asset(get_app):
 
     scheduler.resume()
     wait_sched_process_pending(app)
+    time.sleep(5)  # give the scheduler time to complete the send
     generate(1)
     wait_refresh(app.config['WALLET'], app.config['ONLINE'])
     with app.app_context():
@@ -506,12 +508,10 @@ def test_receive_asset(get_app):
 
 def test_receive_asset_witness(get_app):
     """Test /receive/asset endpoint with a witness transfer."""
-    api = '/receive/asset'
     app = get_app()
     client = app.test_client()
 
     user = prepare_user_wallets(app, 1)[0]
-    wallet_id = get_sha256_hex(user["xpub"])
 
     # prepare 2 colorable UTXOs: 1 for BTC input (witness) + 1 for RGB change
     app.config['WALLET'].create_utxos(app.config['ONLINE'], True, 2, None,
@@ -609,11 +609,14 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
     assert resp.status_code == 200
     asset = resp.json["asset"]
     asset_id = asset['asset_id']
+    starting_balance = wallet.get_asset_balance(asset_id).settled
     wait_sched_process_pending(app)
     wait_refresh(user['wallet'], user['online'])
     generate(1)
     wait_refresh(user['wallet'], user['online'])
-    wait_refresh(wallet, app.config['ONLINE'])
+    # wait for transfer to settle on the faucet side
+    while wallet.get_asset_balance(asset_id).settled == starting_balance:
+        time.sleep(2)
     balance_1 = wallet.get_asset_balance(asset_id)
 
     # send some assets from the user to the faucet wallet
