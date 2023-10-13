@@ -15,13 +15,15 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger('alembic.env')
 
 
+# inverted try/except to remove DeprecationWarning
+# see https://github.com/miguelgrinberg/Flask-Migrate/issues/510#issuecomment-1497147595
 def get_engine():
     try:
-        # this works with Flask-SQLAlchemy<3 and Alchemical
-        return current_app.extensions['migrate'].db.get_engine()
-    except (TypeError, AttributeError):
         # this works with Flask-SQLAlchemy>=3
-        return current_app.extensions['migrate'].db.engine
+        return current_app.extensions["migrate"].db.engine
+    except TypeError:
+        # this works with Flask-SQLAlchemy<3 and Alchemical
+        return current_app.extensions["migrate"].db.get_engine()
 
 
 def get_engine_url():
