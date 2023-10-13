@@ -601,6 +601,9 @@ def test_reserve_topupbtc(get_app):
     app = get_app()
     client = app.test_client()
 
+    # prevent UTXO creation
+    scheduler.pause()
+
     # auth failure
     res = client.get(api, headers=BAD_HEADERS)
     assert res.status_code == 401
