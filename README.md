@@ -357,10 +357,16 @@ To execute a single test run:
 poetry run pytest <path/to/testfile.py>::<test_name>
 ```
 
+To enable code coverage (HTML report) run:
+```sh
+poetry run pytest --cov=faucet_rgb --cov-report=html
+```
+
 Notes:
 - output capture can be disabled by adding the `-s` pytest option
 - output from passed tests can be shown at the end by adding the `-rP` pytest
   option
+- code coverate HTML report is saved in the `htmlcov` directory
 
 [rgb-proxy-server]: https://github.com/grunch/rgb-proxy-server
 [Initial setup example]: #initial-setup-example
