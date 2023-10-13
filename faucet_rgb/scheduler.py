@@ -58,7 +58,16 @@ def send_next_batch():
             txid = cfg['WALLET'].send(cfg['ONLINE'], recipient_map, True,
                                       cfg['FEE_RATE'],
                                       cfg['MIN_CONFIRMATIONS'])
-            logger.info('batch donation sent with TXID: %s', txid)
+
+            # log batch stats
+            stats = {}
+            stats['assets'] = len(recipient_map)
+            stats['recipients'] = 0
+            for _, rec_list in recipient_map.items():
+                stats['recipients'] += len(rec_list)
+            logger.info(
+                'batch donation (%s assets, %s recipients total) sent with TXID: %s',
+                stats['assets'], stats['recipients'], txid)
 
             # update status for served requests
             for req in reqs:
