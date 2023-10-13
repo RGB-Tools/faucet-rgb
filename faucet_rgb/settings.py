@@ -10,6 +10,8 @@ from flask import Flask
 
 from .exceptions import ConfigurationError
 
+SUPPORTED_NETWORKS = ['mainnet', 'testnet', 'regtest']
+
 
 class DistributionMode(Enum):
     """Distribution modes.
@@ -101,6 +103,8 @@ class Config():  # pylint: disable=too-few-public-methods
     SPARE_UTXO_THRESH = 2
     # size for new UTXOs to be created
     UTXO_SIZE = 1000
+    # networks where witness tx is allowed
+    WITNESS_ALLOWED_NETWORKS = ['testnet', 'regtest']
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods
@@ -261,6 +265,12 @@ def check_config(app, log_dir):
     # check the faucet name is configured
     if not app.config['NAME']:
         print('Cannot proceed without a configured faucet name')
+        sys.exit(1)
+
+    # check network
+    if app.config['NETWORK'] not in SUPPORTED_NETWORKS:
+        print('Unsupported network. Supported ones:',
+              ', '.join(SUPPORTED_NETWORKS))
         sys.exit(1)
 
     # check asset configuration

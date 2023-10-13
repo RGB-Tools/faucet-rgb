@@ -12,8 +12,8 @@ from tests.utils import (OPERATOR_HEADERS, USER_HEADERS, create_and_blind,
                          )
 
 
-def _app_preparation_random(app):
-    """Prepare app for the first launch."""
+def _app_prep_random(app):
+    """Prepare app to test random distribution."""
     now = datetime.now(timezone.utc)
     req_win_open = now + timedelta(seconds=30)
     dist_mode = random_dist_mode(app.config, now + timedelta(seconds=30),
@@ -32,7 +32,7 @@ def _issue_single_asset_2(app):
 
 def test_random(get_app):
     """Test random distribtion mode."""
-    app = get_app(_app_preparation_random)
+    app = get_app(_app_prep_random)
     client = app.test_client()
 
     asset_balance = 2

@@ -11,9 +11,24 @@ from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
     BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
     add_fake_request, check_receive_asset, check_requests_left,
-    create_and_blind, generate, prepare_user_wallets, receive_asset,
-    refresh_and_check_settled, wait_refresh, wait_sched_process_pending,
-    witness)
+    create_and_blind, generate, prepare_assets, prepare_user_wallets,
+    receive_asset, refresh_and_check_settled, wait_refresh,
+    wait_sched_process_pending, witness)
+
+
+def _app_prep_mainnet(app):
+    """Prepare app configured on the mainnet network."""
+    app = prepare_assets(app, "group_1")
+    app.config["NETWORK"] = 'mainnet'
+    return app
+
+
+def _app_prep_mainnet_witness_allowed(app):
+    """Prepare app configured on the mainnet network with witness allowed."""
+    app = prepare_assets(app, "group_1")
+    app.config["NETWORK"] = 'mainnet'
+    app.config["WITNESS_ALLOWED_NETWORKS"] = ['mainnet']
+    return app
 
 
 def test_control_assets(get_app):
@@ -536,6 +551,33 @@ def test_receive_asset_witness(get_app):
     assert any([assets.nia, assets.cfa])
     unspents = user['wallet'].list_unspents(user['online'], False)
     assert len(unspents) == 2  # 1 funding + 1 received (witness)
+
+
+def test_receive_asset_witness_disallowed(get_app):
+    """Test /receive/asset endpoint witness transfer is refused."""
+    app = get_app(_app_prep_mainnet)
+    client = app.test_client()
+
+    user = prepare_user_wallets(app, 1)[0]
+
+    # request using a witness tx invoice
+    invoice = witness(app.config, user)
+    resp = receive_asset(client, user["xpub"], invoice)
+    assert resp.status_code == 403
+    assert 'not supported on mainnet' in resp.json['error']
+
+
+def test_receive_asset_witness_allowed(get_app):
+    """Test /receive/asset endpoint witness transfer is allowed."""
+    app = get_app(_app_prep_mainnet_witness_allowed)
+    client = app.test_client()
+
+    user = prepare_user_wallets(app, 1)[0]
+
+    # request using a witness tx invoice
+    invoice = witness(app.config, user)
+    resp = receive_asset(client, user["xpub"], invoice)
+    assert resp.status_code == 200
 
 
 def test_receive_config(get_app):

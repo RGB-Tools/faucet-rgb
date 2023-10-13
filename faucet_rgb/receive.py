@@ -10,7 +10,7 @@ from flask import Blueprint, current_app, jsonify, request
 from faucet_rgb.settings import DistributionMode
 
 from .database import Request, db
-from .utils import get_current_timestamp, get_logger, get_rgb_asset
+from .utils import get_current_timestamp, get_logger, get_rgb_asset, is_blinded_utxo
 from .utils.wallet import is_walletid_valid
 
 bp = Blueprint('receive', __name__, url_prefix='/receive')
@@ -54,7 +54,7 @@ def config(wallet_id):
 
 
 @bp.route('/asset', methods=['POST'])
-def request_rgb_asset():
+def request_rgb_asset():  # pylint: disable=too-many-return-statements
     """Request sending configured amount to the provided invoice.
 
     body data:
@@ -83,6 +83,15 @@ def request_rgb_asset():
         invoice = rgb_lib.Invoice(data['invoice'])
     except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
         return jsonify({'error': 'invalid invoice'}), 403
+
+    # refuse witness requests if not allowed for network
+    if current_app.config['NETWORK'] not in current_app.config[
+            'WITNESS_ALLOWED_NETWORKS'] and not is_blinded_utxo(
+                invoice.invoice_data().recipient_id):
+        return jsonify({
+            'error':
+            f'witness send not supported on {current_app.config["NETWORK"]} network'
+        }), 403
 
     # choose asset group
     configured_assets = current_app.config["ASSETS"]

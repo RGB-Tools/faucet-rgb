@@ -13,7 +13,7 @@ from tests.utils import (
 
 
 def _app_prep_create_witness_utxos(app):
-    """Prepare app for the first launch."""
+    """Prepare app to test UTXO creation for witness batch transfers."""
     app = prepare_assets(app,
                          "group_1",
                          issue_func=_issue_single_asset_1000,

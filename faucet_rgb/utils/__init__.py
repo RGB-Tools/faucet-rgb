@@ -64,11 +64,7 @@ def get_recipient(invoice, amount, cfg):
     invoice_data = rgb_lib.Invoice(invoice).invoice_data()
     recipient_id = invoice_data.recipient_id
     # detect if blinded UTXO or script (witness tx)
-    blinded_utxo = True
-    try:
-        rgb_lib.BlindedUtxo(recipient_id)
-    except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
-        blinded_utxo = False
+    blinded_utxo = is_blinded_utxo(recipient_id)
     # create Recipient
     if blinded_utxo:
         recipient = rgb_lib.Recipient(recipient_id, None, amount,
@@ -108,6 +104,16 @@ def get_spare_available(spare_utxos):
     # amounts from spare UTXOs, biggest excluded (change)
     amounts = sorted([u.utxo.btc_amount for u in spare_utxos][:-1])
     return sum(amounts)
+
+
+def is_blinded_utxo(recipient_id):
+    """Return if the given recipient ID is a blinded UTXO or not."""
+    blinded_utxo = True
+    try:
+        rgb_lib.BlindedUtxo(recipient_id)
+    except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
+        blinded_utxo = False
+    return blinded_utxo
 
 
 def create_witness_utxos(config, stats, spare_utxos):
