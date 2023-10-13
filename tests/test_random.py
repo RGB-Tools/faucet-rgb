@@ -5,10 +5,11 @@ from datetime import datetime, timedelta, timezone
 
 from faucet_rgb import Request
 from faucet_rgb.utils.wallet import get_sha256_hex
-from tests.utils import (
-    OPERATOR_HEADERS, USER_HEADERS, create_and_blind, prepare_assets,
-    prepare_user_wallets, random_dist_mode, receive_asset,
-    wait_sched_process_pending, wait_sched_process_waiting)
+from tests.utils import (OPERATOR_HEADERS, USER_HEADERS, create_and_blind,
+                         issue_single_asset_with_supply, prepare_assets,
+                         prepare_user_wallets, random_dist_mode, receive_asset,
+                         wait_sched_process_pending, wait_sched_process_waiting
+                         )
 
 
 def _app_preparation_random(app):
@@ -20,29 +21,13 @@ def _app_preparation_random(app):
     app = prepare_assets(app,
                          "group_1",
                          dist_mode=dist_mode,
-                         issue_func=_issue_asset_for_random,
+                         issue_func=_issue_single_asset_2,
                          send_amount=1)
     return app
 
 
-def _issue_asset_for_random(app):
-    """Issue 1 CFA asset with faucet-rgb's wallet.
-
-    Returns a list with its asset ID, for compatibility with _issue_asset.
-    """
-    wallet = app.config["WALLET"]
-    online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, app.config['UTXO_SIZE'],
-                        app.config["FEE_RATE"])
-    cfa = wallet.issue_asset_cfa(
-        online,
-        name="test random CFA distribution",
-        description="a CFA asset for testing random distribution",
-        precision=0,
-        amounts=[2],
-        file_path=None,
-    )
-    return [cfa.asset_id]
+def _issue_single_asset_2(app):
+    return issue_single_asset_with_supply(app, 2)
 
 
 def test_random(get_app):

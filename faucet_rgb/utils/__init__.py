@@ -78,3 +78,47 @@ def get_recipient(invoice, amount, cfg):
         recipient = rgb_lib.Recipient(None, script_data, amount,
                                       invoice_data.transport_endpoints)
     return recipient
+
+
+def get_spare_utxos(config):
+    """Return the list of spare colorable UTXOs."""
+    unspents = config['WALLET'].list_unspents(config['ONLINE'], False)
+    return [u for u in unspents if u.utxo.colorable and not u.rgb_allocations]
+
+
+def get_recipient_map_stats(recipient_map):
+    """Return stats on the provided recipient map."""
+    stats = {}
+    stats['assets'] = len(recipient_map)
+    stats['recipients'] = 0
+    stats['witnesses'] = 0
+    for _, rec_list in recipient_map.items():
+        stats['recipients'] += len(rec_list)
+        stats['witnesses'] += len([r for r in rec_list if r.script_data])
+    return stats
+
+
+def get_witness_needed(config, stats):
+    """Get satoshis needed to fund witness transfers."""
+    return config['UTXO_SIZE'] * stats['witnesses']
+
+
+def get_spare_available(spare_utxos):
+    """Get satoshis available in spare colored UTXOs."""
+    # amounts from spare UTXOs, biggest excluded (change)
+    amounts = sorted([u.utxo.btc_amount for u in spare_utxos][:-1])
+    return sum(amounts)
+
+
+def create_witness_utxos(config, stats, spare_utxos):
+    """Create UTXOs needed to support witness transfers, if needed."""
+    needed = get_witness_needed(config, stats)
+    available = get_spare_available(spare_utxos)
+    # if needed, create enough UTXOs to fund witness recipients
+    created = 0
+    if available < needed:
+        utxo_num = round((needed - available) / config['UTXO_SIZE']) + 1
+        created = config['WALLET'].create_utxos(config['ONLINE'], False,
+                                                utxo_num, config['UTXO_SIZE'],
+                                                config["FEE_RATE"])
+    return created

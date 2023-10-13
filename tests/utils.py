@@ -140,6 +140,26 @@ def prepare_user_wallets(app: Flask, num=1):
     return users
 
 
+def issue_single_asset_with_supply(app, supply):
+    """Issue 1 CFA asset with faucet-rgb's wallet.
+
+    Returns a list with its asset ID, for compatibility with _issue_asset.
+    """
+    wallet = app.config["WALLET"]
+    online = app.config["ONLINE"]
+    wallet.create_utxos(online, True, None, app.config['UTXO_SIZE'],
+                        app.config["FEE_RATE"])
+    cfa = wallet.issue_asset_cfa(
+        online,
+        name="test with single CFA asset",
+        description="a CFA asset for testing",
+        precision=0,
+        amounts=[supply],
+        file_path=None,
+    )
+    return [cfa.asset_id]
+
+
 def check_requests_left(app, xpub, group_to_requests_left):
     """Check requests_left for each asset group.
 
@@ -484,9 +504,3 @@ def wait_sched_create_utxos(app):
                 raise RuntimeError('pending requests not getting served')
             # generate(1)
     print('new UTXOs created')
-
-
-def get_spare_utxos(config):
-    """Return the list of spare colorable UTXOs."""
-    unspents = config['WALLET'].list_unspents(config['ONLINE'], False)
-    return [u for u in unspents if u.utxo.colorable and not u.rgb_allocations]

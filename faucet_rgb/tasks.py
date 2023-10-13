@@ -11,7 +11,7 @@ from faucet_rgb.settings import DistributionMode
 
 from .database import Request, db
 from .scheduler import scheduler, send_next_batch
-from .utils import get_current_timestamp, get_logger
+from .utils import get_current_timestamp, get_logger, get_spare_utxos
 
 
 def batch_donation():
@@ -41,10 +41,7 @@ def batch_donation():
         db.session.commit()  # pylint: disable=no-member
 
         # make sure colorable UTXOs are available
-        unspents = cfg['WALLET'].list_unspents(cfg['ONLINE'], False)
-        spare_utxos = [
-            u for u in unspents if u.utxo.colorable and not u.rgb_allocations
-        ]
+        spare_utxos = get_spare_utxos(cfg)
         if len(spare_utxos) < cfg['SPARE_UTXO_THRESH']:
             with contextlib.suppress(
                     rgb_lib.RgbLibError.AllocationsAlreadyAvailable):
@@ -73,7 +70,7 @@ def batch_donation():
                 enough_time_elapsed = True
 
         if request_thresh_reached or enough_time_elapsed:
-            send_next_batch()
+            send_next_batch(spare_utxos)
 
 
 def random_distribution():

@@ -1,17 +1,20 @@
 """Scheduler module."""
 
+import traceback
+
 import rgb_lib
 from flask import current_app
 from flask_apscheduler import APScheduler
 
-from faucet_rgb.utils import get_logger, get_recipient
+from faucet_rgb.utils import (
+    create_witness_utxos, get_logger, get_recipient, get_recipient_map_stats)
 
 from .database import Request, db
 
 scheduler = APScheduler()
 
 
-def send_next_batch():
+def send_next_batch(spare_utxos):
     """Send the next batch of queued requests.
 
     If the SINGLE_ASSET_SEND option is True, only send a single asset per
@@ -46,6 +49,13 @@ def send_next_batch():
                     recipient_list.append(recipient)
             recipient_map[asset_id] = recipient_list
 
+        # batch stats
+        stats = get_recipient_map_stats(recipient_map)
+
+        # create additional UTXOs as needed
+        created = create_witness_utxos(cfg, stats, spare_utxos)
+        logger.info('%s additional UTXOs created', created)
+
         # try sending
         try:
             # set request status to "processing"
@@ -58,24 +68,21 @@ def send_next_batch():
             txid = cfg['WALLET'].send(cfg['ONLINE'], recipient_map, True,
                                       cfg['FEE_RATE'],
                                       cfg['MIN_CONFIRMATIONS'])
-
-            # log batch stats
-            stats = {}
-            stats['assets'] = len(recipient_map)
-            stats['recipients'] = 0
-            for _, rec_list in recipient_map.items():
-                stats['recipients'] += len(rec_list)
             logger.info(
-                'batch donation (%s assets, %s recipients total) sent with TXID: %s',
-                stats['assets'], stats['recipients'], txid)
+                'batch donation (%s assets, %s recipients total, %s witnesses) sent with TXID: %s',
+                stats['assets'], stats['recipients'], stats['witnesses'], txid)
 
             # update status for served requests
             for req in reqs:
                 Request.query.filter_by(idx=req.idx).update({'status': 40})
             db.session.commit()  # pylint: disable=no-member
-        except (rgb_lib.RgbLibError.InsufficientSpendableAssets,
-                rgb_lib.RgbLibError.InsufficientTotalAssets):
-            logger.error('Not enough assets, send failed')
-        except Exception as err:  # pylint: disable=broad-exception-caught
-            # log any other error
-            logger.error('Failed to send assets %s', err)
+        except rgb_lib.RgbLibError.InsufficientAllocationSlots:
+            logger.error('Failed to send: not enough allocation slots')
+        except rgb_lib.RgbLibError.InsufficientSpendableAssets:
+            logger.error('Failed to send: not enough spendable assets')
+        except rgb_lib.RgbLibError.InsufficientTotalAssets:
+            logger.error('Failed to send: not enough total assets')
+        except Exception:  # pylint: disable=broad-exception-caught
+            # log any other error, including traceback
+            logger.error('Failed to send: unexpected')
+            logger.error(traceback.format_exc())
