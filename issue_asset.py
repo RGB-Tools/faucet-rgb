@@ -73,7 +73,8 @@ def entrypoint():
     # asset issuance
     try:
         count = wallet.create_utxos(online, True,
-                                    len(args.amounts) + 2, None,
+                                    len(args.amounts) + 2,
+                                    app.config['UTXO_SIZE'],
                                     app.config['FEE_RATE'])
         print(f'{count} new UTXOs created')
     except rgb_lib.RgbLibError.AllocationsAlreadyAvailable:

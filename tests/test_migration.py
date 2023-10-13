@@ -79,7 +79,8 @@ def _assure_no_pending_request(app):
     logger.info("waiting for requests to be served...")
     retry = 0
     max_retry = 20
-    app.config["WALLET"].create_utxos(app.config["ONLINE"], True, None, None,
+    app.config["WALLET"].create_utxos(app.config["ONLINE"], True, None,
+                                      app.config['UTXO_SIZE'],
                                       app.config["FEE_RATE"])
     while True:
         retry = retry + 1

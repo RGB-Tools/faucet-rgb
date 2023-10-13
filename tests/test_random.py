@@ -32,7 +32,8 @@ def _issue_asset_for_random(app):
     """
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, None, app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config['UTXO_SIZE'],
+                        app.config["FEE_RATE"])
     cfa = wallet.issue_asset_cfa(
         online,
         name="test random CFA distribution",

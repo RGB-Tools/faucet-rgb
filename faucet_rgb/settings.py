@@ -99,6 +99,8 @@ class Config():  # pylint: disable=too-few-public-methods
     SPARE_UTXO_NUM = 5
     # threshold for creating new colorable UTXOS
     SPARE_UTXO_THRESH = 2
+    # size for new UTXOs to be created
+    UTXO_SIZE = None
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods

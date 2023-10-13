@@ -50,7 +50,8 @@ def batch_donation():
                     rgb_lib.RgbLibError.AllocationsAlreadyAvailable):
                 created = cfg['WALLET'].create_utxos(cfg['ONLINE'], True,
                                                      cfg['SPARE_UTXO_NUM'],
-                                                     None, cfg["FEE_RATE"])
+                                                     cfg['UTXO_SIZE'],
+                                                     cfg["FEE_RATE"])
                 logger.info('%s UTXOs created', created)
 
         # checks

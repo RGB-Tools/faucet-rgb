@@ -514,7 +514,8 @@ def test_receive_asset_witness(get_app):
     user = prepare_user_wallets(app, 1)[0]
 
     # prepare 2 colorable UTXOs: 1 for BTC input (witness) + 1 for RGB change
-    app.config['WALLET'].create_utxos(app.config['ONLINE'], True, 2, None,
+    app.config['WALLET'].create_utxos(app.config['ONLINE'], True, 2,
+                                      app.config['UTXO_SIZE'],
                                       app.config['FEE_RATE'])
 
     # request using a witness tx invoice
@@ -635,7 +636,8 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
                               invoice_data.transport_endpoints),
         ]
     }
-    created = user['wallet'].create_utxos(user['online'], True, 1, None,
+    created = user['wallet'].create_utxos(user['online'], True, 1,
+                                          app.config['UTXO_SIZE'],
                                           app.config['FEE_RATE'])
     assert created == 1
     txid = user['wallet'].send(user['online'], recipient_map, True,

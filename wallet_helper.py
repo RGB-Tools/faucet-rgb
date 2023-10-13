@@ -69,7 +69,8 @@ def entrypoint():
 
     if args.blind:
         try:
-            count = wallet.create_utxos(online, True, 1, None,
+            count = wallet.create_utxos(online, True, 1,
+                                        app.config['UTXO_SIZE'],
                                         app.config['FEE_RATE'])
             if count > 0:
                 print(f'{count} new UTXOs created')

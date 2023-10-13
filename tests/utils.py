@@ -162,7 +162,8 @@ def check_requests_left(app, xpub, group_to_requests_left):
 def create_and_blind(config, user):
     """Create up to 1 UTXO and return an invoice with a blinded UTXO."""
     wallet = user["wallet"]
-    _ = wallet.create_utxos(user["online"], True, 1, None, config["FEE_RATE"])
+    _ = wallet.create_utxos(user["online"], True, 1, config['UTXO_SIZE'],
+                            config["FEE_RATE"])
     receive_data = wallet.blind_receive(None, None, None,
                                         config["TRANSPORT_ENDPOINTS"],
                                         config['MIN_CONFIRMATIONS'])
@@ -274,7 +275,8 @@ def _issue_asset(app):
     _ASSET_COUNT += 1
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, None, app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config['UTXO_SIZE'],
+                        app.config["FEE_RATE"])
     nia = wallet.issue_asset_nia(
         online,
         ticker=f"TFT{_ASSET_COUNT}",
