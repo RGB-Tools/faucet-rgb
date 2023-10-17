@@ -7,7 +7,7 @@ from hashlib import sha256
 import rgb_lib
 
 
-def init_wallet(electrum_url, xpub, mnemonic, data_dir, network):
+def init_wallet(electrum_url, xpub, mnemonic, data_dir, network, keychain):
     """Initialize the wallet."""
     print('Initializing wallet...')
     if xpub is None:
@@ -29,7 +29,8 @@ def init_wallet(electrum_url, xpub, mnemonic, data_dir, network):
                 1,
                 xpub,
                 mnemonic,
-            ), )
+                keychain,
+            ))
     except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception
         print('rgb_lib error:', err)
         raise RuntimeError('Faucet unavailable') from err

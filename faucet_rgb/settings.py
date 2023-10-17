@@ -105,6 +105,8 @@ class Config():  # pylint: disable=too-few-public-methods
     UTXO_SIZE = 1000
     # networks where witness tx is allowed
     WITNESS_ALLOWED_NETWORKS = ['testnet', 'regtest']
+    # the change number to use for the vanilla (non-colored) keychain
+    VANILLA_KEYCHAIN = 1
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods

@@ -68,7 +68,8 @@ def entrypoint():
     online, wallet = utils.wallet.init_wallet(app.config['ELECTRUM_URL'],
                                               app.config['XPUB'],
                                               app.config['MNEMONIC'], data_dir,
-                                              network)
+                                              network,
+                                              app.config['VANILLA_KEYCHAIN'])
 
     # asset issuance
     try:

@@ -113,7 +113,8 @@ def _get_user_wallet(data_dir):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
     online, wallet = utils.wallet.init_wallet(ELECTRUM_URL, keys.xpub,
-                                              keys.mnemonic, data_dir, NETWORK)
+                                              keys.mnemonic, data_dir, NETWORK,
+                                              Config.VANILLA_KEYCHAIN)
     return {"wallet": wallet, "xpub": keys.xpub, "online": online}
 
 
@@ -270,6 +271,7 @@ def _prepare_utxos(app):
         app.config["MNEMONIC"],
         app.config["DATA_DIR"],
         app.config["NETWORK"],
+        app.config['VANILLA_KEYCHAIN'],
     )
     wallet.refresh(online, None, [])
     addr = wallet.get_address()

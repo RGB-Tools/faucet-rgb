@@ -173,7 +173,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
         app.config['ONLINE'], app.config['WALLET'] = init_wallet(
             app.config['ELECTRUM_URL'], app.config['XPUB'],
             app.config['MNEMONIC'], app.config['DATA_DIR'],
-            app.config['NETWORK'])
+            app.config['NETWORK'], app.config['VANILLA_KEYCHAIN'])
 
     # ensure all the configured assets are available
     wallet = app.config['WALLET']
