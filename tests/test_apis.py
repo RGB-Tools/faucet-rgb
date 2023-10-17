@@ -3,17 +3,19 @@
 import random
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import rgb_lib
 
 from faucet_rgb import Request, scheduler
+from faucet_rgb.settings import DistributionMode
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
     BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
-    add_fake_request, check_receive_asset, check_requests_left,
-    create_and_blind, generate, prepare_assets, prepare_user_wallets,
-    receive_asset, refresh_and_check_settled, wait_refresh,
-    wait_sched_process_pending, witness)
+    add_fake_request, check_receive_asset, create_and_blind, generate,
+    prepare_assets, prepare_user_wallets, receive_asset,
+    refresh_and_check_settled, wait_refresh, wait_sched_process_pending,
+    witness)
 
 
 def _app_prep_mainnet(app):
@@ -28,6 +30,19 @@ def _app_prep_mainnet_witness_allowed(app):
     app = prepare_assets(app, "group_1")
     app.config["NETWORK"] = 'mainnet'
     app.config["WITNESS_ALLOWED_NETWORKS"] = ['mainnet']
+    return app
+
+
+def _app_prep_random(app):
+    """Prepare app to test random distribution."""
+    dist_mode = {
+        "mode": 2,
+        "params": {
+            "request_window_open": '2023-10-18T00:00:00+0000',
+            "request_window_close": '2023-10-19T00:00:00+0000',
+        },
+    }
+    app = prepare_assets(app, "group_1", dist_mode=dist_mode)
     return app
 
 
@@ -497,6 +512,7 @@ def test_receive_asset(get_app):
     assert 'name' in asset
     assert 'precision' in asset
     assert 'schema' in asset
+    assert resp.json['distribution']['mode'] == DistributionMode.STANDARD.value
 
     scheduler.resume()
     wait_sched_process_pending(app)
@@ -580,6 +596,26 @@ def test_receive_asset_witness_allowed(get_app):
     assert resp.status_code == 200
 
 
+def test_receive_asset_random(get_app):
+    """Test /receive/asset endpoint for random distribution."""
+    api = '/receive/asset'
+    app = get_app(_app_prep_random)
+    client = app.test_client()
+
+    user = prepare_user_wallets(app, 1)[0]
+
+    # standard request
+    scheduler.pause()
+    resp = receive_asset(client, user["xpub"],
+                         create_and_blind(app.config, user))
+    assert resp.status_code == 200
+    assert 'asset' in resp.json
+    dist_params = resp.json['distribution']['params']
+    assert resp.json['distribution']['mode'] == DistributionMode.RANDOM.value
+    assert dist_params['request_window_open'] == '2023-10-18T00:00:00+0000'
+    assert dist_params['request_window_close'] == '2023-10-19T00:00:00+0000'
+
+
 def test_receive_config(get_app):
     """Test /receive/config/<wallet_id> endpoint."""
     api = '/receive/config'
@@ -592,7 +628,36 @@ def test_receive_config(get_app):
 
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, "REGTEST")
     xpub = rgb_lib.generate_keys(bitcoin_network).xpub
-    check_requests_left(app, xpub, {"group_1": 1})
+    wallet_id = get_sha256_hex(xpub)
+
+    resp = client.get(f"{api}/{wallet_id}", headers=USER_HEADERS)
+    assert resp.status_code == 200
+    group = resp.json['groups']['group_1']
+    assert group['label'] == 'group_1 for the test'
+    assert group['distribution']['mode'] == 1
+    assert 'requests_left' in group
+
+
+def test_receive_config_random(get_app):
+    """Test /receive/config/<wallet_id> endpoint for random distribution."""
+    api = '/receive/config'
+    app = get_app(_app_prep_random)
+    client = app.test_client()
+
+    bitcoin_network = getattr(rgb_lib.BitcoinNetwork, "REGTEST")
+    xpub = rgb_lib.generate_keys(bitcoin_network).xpub
+    wallet_id = get_sha256_hex(xpub)
+
+    resp = client.get(f"{api}/{wallet_id}", headers=USER_HEADERS)
+    print('resp:', resp.json)
+    assert resp.status_code == 200
+    group = resp.json['groups']['group_1']
+    assert group['label'] == 'group_1 for the test'
+    dist_params = group['distribution']['params']
+    assert group['distribution']['mode'] == 2
+    assert dist_params['request_window_open'] == '2023-10-18T00:00:00+0000'
+    assert dist_params['request_window_close'] == '2023-10-19T00:00:00+0000'
+    assert 'requests_left' in group
 
 
 def test_reserve_topupbtc(get_app):

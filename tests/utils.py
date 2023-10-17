@@ -118,13 +118,13 @@ def _get_user_wallet(data_dir):
     return {"wallet": wallet, "xpub": keys.xpub, "online": online}
 
 
-def prepare_user_wallets(app: Flask, num=1):
+def prepare_user_wallets(app: Flask, num=1, start_num=0):
     """Prepare user wallets with UTXO.
 
     Its data will be put under `test_data/<function_name>/user<n>`.
     """
     users = []
-    for i in range(0, num):
+    for i in range(start_num, start_num + num):
         data_dir = os.path.join(app.config["DATA_DIR"], f"user{i}")
         if os.path.exists(data_dir):
             shutil.rmtree(data_dir)

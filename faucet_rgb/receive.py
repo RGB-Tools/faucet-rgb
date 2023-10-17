@@ -1,5 +1,6 @@
 """Faucet blueprint to top-up funds."""
 
+from enum import Enum
 import json
 import random
 from datetime import datetime, timezone
@@ -14,6 +15,22 @@ from .utils import get_current_timestamp, get_logger, get_rgb_asset, is_blinded_
 from .utils.wallet import is_walletid_valid
 
 bp = Blueprint('receive', __name__, url_prefix='/receive')
+
+
+class DenyReason(Enum):
+    """Reason the request is being denied for."""
+    ALREADY_REQUESTED = 1
+    OUSTIDE_REQUEST_WINDOW = 2
+    MIGRATION_COMPLETE = 3
+    NOT_IN_MIGRATION_LIST = 4
+
+
+REASON_MAP = {
+    1: 'already requested from group',
+    2: 'outside the request window',
+    3: 'migration complete',
+    4: 'not in migration list',
+}
 
 
 @bp.route('/config/<wallet_id>', methods=['GET'])
@@ -45,9 +62,10 @@ def config(wallet_id):
     assets = current_app.config["ASSETS"]
     groups = {}
     for group_name, group_data in assets.items():
-        allowed = _is_request_allowed(wallet_id, group_name)
+        (allowed, _reason) = _is_request_allowed(wallet_id, group_name)
         groups[group_name] = {
             'label': group_data['label'],
+            'distribution': group_data['distribution'],
             'requests_left': 1 if allowed else 0,
         }
     return jsonify({'name': current_app.config["NAME"], 'groups': groups})
@@ -107,11 +125,12 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     asset = random.choice(list(configured_assets[asset_group]['assets']))
 
     # check if request is allowed
-    allowed = _is_request_allowed(data['wallet_id'], asset_group)
+    (allowed, reason) = _is_request_allowed(data['wallet_id'], asset_group)
     if not allowed:
         return jsonify({
             'error':
-            f'wallet has no right to request an asset from group {asset_group}'
+            f'wallet has no right to request an asset from group {asset_group}',
+            'reason': REASON_MAP[reason.value],
         }), 403
 
     # handle asset migration
@@ -181,7 +200,10 @@ def _request_rgb_asset_core(wallet_id, invoice, asset_group, asset, logger):
     db.session.commit()
     # pylint: enable=no-member
 
-    return jsonify({'asset': asset_data})
+    return jsonify({
+        'asset': asset_data,
+        'distribution': dist_conf,
+    })
 
 
 def _is_request_allowed(wallet_id, group_name):
@@ -190,7 +212,7 @@ def _is_request_allowed(wallet_id, group_name):
     reqs = Request.query.filter(Request.wallet_id == wallet_id,
                                 Request.asset_group == group_name).count()
     if reqs:
-        return False
+        return (False, DenyReason.ALREADY_REQUESTED)
 
     # deny based on distribution mode
     dist_conf = current_app.config['ASSETS'][group_name]['distribution']
@@ -204,7 +226,7 @@ def _is_request_allowed(wallet_id, group_name):
         now = datetime.now(timezone.utc)
         # deny requests outside the configured request window
         if now < req_win_open or now > req_win_close:
-            return False
+            return (False, DenyReason.OUSTIDE_REQUEST_WINDOW)
 
     # deny based on migration configuration and status
     if group_name not in current_app.config['NON_MIGRATION_GROUPS']:
@@ -212,10 +234,10 @@ def _is_request_allowed(wallet_id, group_name):
             group_name)
         # no requests allowed for completely migrated groups
         if mig_cache_group is None:
-            return False
+            return (False, DenyReason.MIGRATION_COMPLETE)
         # deny request if wallet ID is not in migration group
         if mig_cache_group.get(wallet_id) is None:
-            return False
+            return (False, DenyReason.NOT_IN_MIGRATION_LIST)
 
     # allow request
-    return True
+    return (True, None)
