@@ -1,7 +1,7 @@
 """Tests for random distribution mode."""
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from faucet_rgb import Request
 from faucet_rgb.receive import REASON_MAP
@@ -16,7 +16,7 @@ from tests.utils import (OPERATOR_HEADERS, USER_HEADERS, create_and_blind,
 
 def _app_prep_random_single_asset(app):
     """Prepare app to test random distribution."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     req_win_open = now + timedelta(seconds=30)
     dist_mode = random_dist_mode(app.config, req_win_open,
                                  req_win_open + timedelta(minutes=1))
@@ -30,7 +30,7 @@ def _app_prep_random_single_asset(app):
 
 def _app_prep_random_multiple_assets(app):
     """Prepare app to test random distribution."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     req_win_open = now
     dist_mode = random_dist_mode(app.config, req_win_open,
                                  req_win_open + timedelta(minutes=1))
@@ -103,7 +103,7 @@ def test_random_single_asset(get_app):
     users = prepare_user_wallets(app, asset_balance + extra_requests)
 
     # check cannot request before window open + wait window open
-    assert datetime.now(timezone.utc) < req_win['open']
+    assert datetime.now() < req_win['open']
 
     resp = client.post(
         "/receive/asset",
@@ -118,7 +118,7 @@ def test_random_single_asset(get_app):
 
     # wait for window open
     print('waiting for random request window to open...')
-    while datetime.now(timezone.utc) < req_win['open']:
+    while datetime.now() < req_win['open']:
         time.sleep(5)
     print('random request window opened')
 
@@ -136,7 +136,7 @@ def test_random_single_asset(get_app):
 
     # wait for window close
     print('waiting for random request window to close...')
-    while datetime.now(timezone.utc) < req_win['close']:
+    while datetime.now() < req_win['close']:
         time.sleep(5)
     print('random request window closed')
 
@@ -222,7 +222,7 @@ def test_random_multiple_assets(get_app):
 
     # wait for window close
     print('waiting for random request window to close...')
-    while datetime.now(timezone.utc) < req_win['close']:
+    while datetime.now() < req_win['close']:
         time.sleep(5)
     print('random request window closed')
 

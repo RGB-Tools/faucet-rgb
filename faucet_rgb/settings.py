@@ -92,7 +92,7 @@ class Config():  # pylint: disable=too-few-public-methods
     # configure this directly
     ASSET_MIGRATION_CACHE = {}
     # date format string
-    DATE_FORMAT = '%Y-%m-%dT%H:%M:%S%z'
+    DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
     # minimum number of confirmations before a transfer is considered settled
     MIN_CONFIRMATIONS = 1
     # amount in satoshi for sending witness txs

@@ -1,6 +1,6 @@
 """Tests for APIs."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from faucet_rgb import Request, exceptions
 from tests.utils import (
@@ -38,7 +38,7 @@ def _app_prep_cfg_random_no_params(app):
 
 def _app_prep_cfg_random_bad_params(app):
     """Prepare app with random distribution mode but bad params."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     req_win_open = now + timedelta(seconds=30)
     dist_mode = random_dist_mode(app.config, now + timedelta(seconds=30),
                                  req_win_open + timedelta(minutes=1))
@@ -48,7 +48,7 @@ def _app_prep_cfg_random_bad_params(app):
 
 def _app_prep_cfg_random_bad_req_win(app):
     """Prepare app with random distribution mode but bad request window."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     date_fmt = app.config['DATE_FORMAT']
     req_win_open = now + timedelta(days=1)
     req_win_close = now - timedelta(days=1)

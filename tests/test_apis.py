@@ -37,8 +37,8 @@ def _app_prep_random(app):
     dist_mode = {
         "mode": 2,
         "random_params": {
-            "request_window_open": '2023-10-18T00:00:00+0000',
-            "request_window_close": '2023-10-19T00:00:00+0000',
+            "request_window_open": '2023-10-18T00:00:00',
+            "request_window_close": '2023-10-19T00:00:00',
         },
     }
     app = prepare_assets(app, "group_1", dist_mode=dist_mode)
@@ -610,8 +610,8 @@ def test_receive_asset_random(get_app):
     assert 'asset' in resp.json
     dist_params = resp.json['distribution']['random_params']
     assert resp.json['distribution']['mode'] == DistributionMode.RANDOM.value
-    assert dist_params['request_window_open'] == '2023-10-18T00:00:00+0000'
-    assert dist_params['request_window_close'] == '2023-10-19T00:00:00+0000'
+    assert dist_params['request_window_open'] == '2023-10-18T00:00:00'
+    assert dist_params['request_window_close'] == '2023-10-19T00:00:00'
 
 
 def test_receive_config(get_app):
@@ -653,8 +653,8 @@ def test_receive_config_random(get_app):
     assert group['label'] == 'group_1 for the test'
     dist_params = group['distribution']['random_params']
     assert group['distribution']['mode'] == 2
-    assert dist_params['request_window_open'] == '2023-10-18T00:00:00+0000'
-    assert dist_params['request_window_close'] == '2023-10-19T00:00:00+0000'
+    assert dist_params['request_window_open'] == '2023-10-18T00:00:00'
+    assert dist_params['request_window_close'] == '2023-10-19T00:00:00'
     assert 'requests_left' in group
 
 

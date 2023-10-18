@@ -2,7 +2,7 @@
 
 import json
 import random
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 
 import rgb_lib
@@ -224,7 +224,7 @@ def _is_request_allowed(wallet_id, group_name):
         date_format = current_app.config['DATE_FORMAT']
         req_win_open = datetime.strptime(req_win_open, date_format)
         req_win_close = datetime.strptime(req_win_close, date_format)
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         # deny requests outside the configured request window
         if now < req_win_open or now > req_win_close:
             return (False, DenyReason.OUSTIDE_REQUEST_WINDOW)

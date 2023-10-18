@@ -2,7 +2,7 @@
 
 import contextlib
 import random
-from datetime import datetime, timezone
+from datetime import datetime
 
 import rgb_lib
 from flask import current_app
@@ -86,7 +86,7 @@ def random_distribution():
         logger = get_logger(__name__)
         cfg = current_app.config
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         for group, val in current_app.config['ASSETS'].items():
             # skip if not random mode or request window has not closed yet
             dist_conf = current_app.config['ASSETS'][group].get('distribution')
