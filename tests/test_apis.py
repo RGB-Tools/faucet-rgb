@@ -175,7 +175,7 @@ def test_control_refresh(get_app):
         headers=OPERATOR_HEADERS,
     )
     assert resp.status_code == 404
-    assert 'Unknown asset ID' in resp.json['error']
+    assert 'unknown asset ID' in resp.json['error']
 
     # transfer refresh
     user = prepare_user_wallets(app, 1)[0]
@@ -533,7 +533,7 @@ def test_receive_asset(get_app):
         headers=USER_HEADERS,
     )
     assert resp.status_code == 404
-    assert resp.json['error'] == 'Invalid asset group'
+    assert resp.json['error'] == 'invalid asset group'
 
 
 def test_receive_asset_witness(get_app):

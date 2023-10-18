@@ -1,9 +1,9 @@
 """Faucet blueprint to top-up funds."""
 
-from enum import Enum
 import json
 import random
 from datetime import datetime, timezone
+from enum import Enum
 
 import rgb_lib
 from flask import Blueprint, current_app, jsonify, request
@@ -11,7 +11,8 @@ from flask import Blueprint, current_app, jsonify, request
 from faucet_rgb.settings import DistributionMode
 
 from .database import Request, db
-from .utils import get_current_timestamp, get_logger, get_rgb_asset, is_blinded_utxo
+from .utils import (
+    get_current_timestamp, get_logger, get_rgb_asset, is_blinded_utxo)
 from .utils.wallet import is_walletid_valid
 
 bp = Blueprint('receive', __name__, url_prefix='/receive')
@@ -116,7 +117,7 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     asset_group = data.get('asset_group')
     if asset_group is not None:
         if asset_group not in configured_assets:
-            return jsonify({'error': 'Invalid asset group'}), 404
+            return jsonify({'error': 'invalid asset group'}), 404
     asset = None
     if asset_group is None:
         # chose randomly from non-migration groups
@@ -168,7 +169,7 @@ def _request_rgb_asset_core(wallet_id, invoice, asset_group, asset, logger):
     # prepare asset data
     rgb_asset, schema = get_rgb_asset(asset['asset_id'])
     if rgb_asset is None:
-        return jsonify({'error': 'Internal error getting asset data'}), 500
+        return jsonify({'error': 'internal error getting asset data'}), 500
     asset_data = {
         'asset_id': asset['asset_id'],
         'schema': schema,

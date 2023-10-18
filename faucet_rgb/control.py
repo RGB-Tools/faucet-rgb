@@ -118,9 +118,9 @@ def refresh(asset_id):
         res = wallet.refresh(online, asset_id, [])
         return jsonify({'result': res}), 200
     except rgb_lib.RgbLibError.AssetNotFound:
-        return jsonify({'error': f'Unknown asset ID: {asset_id}'}), 404
+        return jsonify({'error': f'unknown asset ID: {asset_id}'}), 404
     except Exception as err:  # pylint: disable=broad-except
-        return jsonify({'error': f'Unknown error: {err}'}), 500
+        return jsonify({'error': f'unknown error: {err}'}), 500
 
 
 @bp.route('/requests', methods=['GET'])
