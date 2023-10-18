@@ -54,7 +54,7 @@ def _app_prep_cfg_random_bad_req_win(app):
     req_win_close = now - timedelta(days=1)
     dist_mode = {
         "mode": 2,
-        "params": {
+        "random_params": {
             "request_window_open": datetime.strftime(req_win_open, date_fmt),
             "request_window_close": datetime.strftime(req_win_close, date_fmt),
         },
@@ -121,7 +121,7 @@ def test_cfg_random_no_params(get_app):
         get_app(_app_prep_cfg_random_no_params)
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
-        assert 'missing distribution params' in err.errors[0]
+        assert 'missing distribution random params' in err.errors[0]
 
 
 def test_cfg_random_bad_params(get_app):

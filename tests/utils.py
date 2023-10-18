@@ -423,7 +423,7 @@ def random_dist_mode(config, req_win_open, req_win_close):
     date_fmt = config['DATE_FORMAT']
     return {
         "mode": 2,
-        "params": {
+        "random_params": {
             "request_window_open": datetime.strftime(req_win_open, date_fmt),
             "request_window_close": datetime.strftime(req_win_close, date_fmt),
         },

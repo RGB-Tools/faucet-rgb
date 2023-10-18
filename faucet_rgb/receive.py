@@ -218,8 +218,8 @@ def _is_request_allowed(wallet_id, group_name):
     dist_conf = current_app.config['ASSETS'][group_name]['distribution']
     dist_mode = DistributionMode(dist_conf['mode'])
     if dist_mode == DistributionMode.RANDOM:
-        req_win_open = dist_conf['params']['request_window_open']
-        req_win_close = dist_conf['params']['request_window_close']
+        req_win_open = dist_conf['random_params']['request_window_open']
+        req_win_close = dist_conf['random_params']['request_window_close']
         date_format = current_app.config['DATE_FORMAT']
         req_win_open = datetime.strptime(req_win_open, date_format)
         req_win_close = datetime.strptime(req_win_close, date_format)

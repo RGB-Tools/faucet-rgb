@@ -196,9 +196,9 @@ def check_distribution(app, group_name, group_val, errors):
         errors.append(f'error "{err}" {err_end}')
         return
     if dist_mode == DistributionMode.RANDOM:
-        dist_params = dist_conf.get('params')
+        dist_params = dist_conf.get('random_params')
         if not dist_params:
-            errors.append(f'{err_begin} params {err_end}')
+            errors.append(f'{err_begin} random params {err_end}')
             return
         params = ['request_window_open', 'request_window_close']
         for param in params:

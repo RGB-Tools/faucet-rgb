@@ -86,10 +86,10 @@ def test_random_single_asset(get_app):
     dist_conf = app.config['ASSETS']['group_1']['distribution']
     req_win = {
         'open':
-        datetime.strptime(dist_conf['params']['request_window_open'],
+        datetime.strptime(dist_conf['random_params']['request_window_open'],
                           app.config['DATE_FORMAT']),
         'close':
-        datetime.strptime(dist_conf['params']['request_window_close'],
+        datetime.strptime(dist_conf['random_params']['request_window_close'],
                           app.config['DATE_FORMAT'])
     }
 
@@ -194,10 +194,10 @@ def test_random_multiple_assets(get_app):
     dist_conf = app.config['ASSETS']['group_1']['distribution']
     req_win = {
         'open':
-        datetime.strptime(dist_conf['params']['request_window_open'],
+        datetime.strptime(dist_conf['random_params']['request_window_open'],
                           app.config['DATE_FORMAT']),
         'close':
-        datetime.strptime(dist_conf['params']['request_window_close'],
+        datetime.strptime(dist_conf['random_params']['request_window_close'],
                           app.config['DATE_FORMAT'])
     }
 

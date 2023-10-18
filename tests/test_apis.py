@@ -3,7 +3,6 @@
 import random
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
 
 import rgb_lib
 
@@ -37,7 +36,7 @@ def _app_prep_random(app):
     """Prepare app to test random distribution."""
     dist_mode = {
         "mode": 2,
-        "params": {
+        "random_params": {
             "request_window_open": '2023-10-18T00:00:00+0000',
             "request_window_close": '2023-10-19T00:00:00+0000',
         },
@@ -598,7 +597,6 @@ def test_receive_asset_witness_allowed(get_app):
 
 def test_receive_asset_random(get_app):
     """Test /receive/asset endpoint for random distribution."""
-    api = '/receive/asset'
     app = get_app(_app_prep_random)
     client = app.test_client()
 
@@ -610,7 +608,7 @@ def test_receive_asset_random(get_app):
                          create_and_blind(app.config, user))
     assert resp.status_code == 200
     assert 'asset' in resp.json
-    dist_params = resp.json['distribution']['params']
+    dist_params = resp.json['distribution']['random_params']
     assert resp.json['distribution']['mode'] == DistributionMode.RANDOM.value
     assert dist_params['request_window_open'] == '2023-10-18T00:00:00+0000'
     assert dist_params['request_window_close'] == '2023-10-19T00:00:00+0000'
@@ -653,7 +651,7 @@ def test_receive_config_random(get_app):
     assert resp.status_code == 200
     group = resp.json['groups']['group_1']
     assert group['label'] == 'group_1 for the test'
-    dist_params = group['distribution']['params']
+    dist_params = group['distribution']['random_params']
     assert group['distribution']['mode'] == 2
     assert dist_params['request_window_open'] == '2023-10-18T00:00:00+0000'
     assert dist_params['request_window_close'] == '2023-10-19T00:00:00+0000'

@@ -93,7 +93,7 @@ def random_distribution():
             dist_mode = DistributionMode(dist_conf['mode'])
             if dist_mode != DistributionMode.RANDOM:
                 continue
-            req_win_close = dist_conf['params']['request_window_close']
+            req_win_close = dist_conf['random_params']['request_window_close']
             req_win_close = datetime.strptime(req_win_close,
                                               cfg['DATE_FORMAT'])
             if now < req_win_close:
