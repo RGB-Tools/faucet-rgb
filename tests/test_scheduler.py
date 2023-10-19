@@ -4,12 +4,21 @@ import time
 
 from faucet_rgb import scheduler
 from faucet_rgb.database import Request
+from faucet_rgb.scheduler import send_next_batch
 from faucet_rgb.utils import get_spare_available, get_spare_utxos
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
     USER_HEADERS, issue_single_asset_with_supply, prepare_assets,
     prepare_user_wallets, receive_asset, wait_sched_create_utxos,
     wait_sched_process_pending, witness)
+
+
+def _app_prep_single_asset_false(app):
+    """Prepare app to test SINGLE_ASSET_SEND set to False."""
+    app = prepare_assets(app, "group_1")
+    app = prepare_assets(app, "group_2")
+    app.config["SINGLE_ASSET_SEND"] = False
+    return app
 
 
 def _app_prep_create_witness_utxos(app):
@@ -78,7 +87,6 @@ def test_create_witness_utxos(get_app):
 
     # accumulate enough witness requests for the same asset (for batching)
     num = round(available / app.config['UTXO_SIZE']) + 1
-    print('num:', num)
     for _ in range(num):
         user = prepare_user_wallets(app, 1)[0]
         invoice = witness(app.config, user)
@@ -103,3 +111,39 @@ def test_create_witness_utxos(get_app):
         request_num = Request.query.count()
         while Request.query.filter_by(status=40).count() != request_num:
             time.sleep(2)
+
+
+def test_single_asset_false(get_app):
+    """Test UTXO creation."""
+    app = get_app(_app_prep_single_asset_false)
+    client = app.test_client()
+
+    scheduler.pause()
+
+    users = prepare_user_wallets(app, 2)
+
+    # request 2 different assets
+    for (idx, user) in enumerate(users):
+        invoice = witness(app.config, user)
+        resp = client.post(
+            "/receive/asset",
+            json={
+                'wallet_id': get_sha256_hex(user['xpub']),
+                'invoice': invoice,
+                'asset_group': f'group_{idx+1}'
+            },
+            headers=USER_HEADERS,
+        )
+        assert resp.status_code == 200
+
+    with app.app_context():
+        assert Request.query.count() == 2
+        assert all([r.status == 20 for r in Request.query.all()])
+
+    # manually trigger the sending function once
+    send_next_batch(get_spare_utxos(app.config))
+
+    # check both assets have been sent (in a single batch)
+    with app.app_context():
+        assert Request.query.count() == 2
+        assert all([r.status == 40 for r in Request.query.all()])
