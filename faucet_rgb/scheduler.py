@@ -57,6 +57,13 @@ def send_next_batch(spare_utxos):
         logger.info('%s additional UTXOs created', created)
 
         # try sending
+        _try_send(reqs, cfg, recipient_map, stats)
+
+
+def _try_send(reqs, cfg, recipient_map, stats):
+    """Try to send."""
+    with scheduler.app.app_context():
+        logger = get_logger(__name__)
         try:
             # set request status to "processing"
             logger.info('sending batch donation')

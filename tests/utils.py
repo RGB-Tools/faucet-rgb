@@ -16,7 +16,7 @@ from flask_apscheduler import STATE_RUNNING
 from faucet_rgb import create_app, scheduler, utils
 from faucet_rgb.database import Request, db
 from faucet_rgb.settings import Config
-from faucet_rgb.utils.wallet import get_sha256_hex
+from faucet_rgb.utils.wallet import get_sha256_hex, wallet_data_from_config
 
 BITCOIN_ARG = [
     "docker",
@@ -112,9 +112,14 @@ def _wait_electrs_sync():
 def _get_user_wallet(data_dir):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
-    online, wallet = utils.wallet.init_wallet(ELECTRUM_URL, keys.xpub,
-                                              keys.mnemonic, data_dir, NETWORK,
-                                              Config.VANILLA_KEYCHAIN)
+    wallet_data = {
+        'xpub': keys.xpub,
+        'mnemonic': keys.mnemonic,
+        'data_dir': data_dir,
+        'network': NETWORK,
+        'keychain': Config.VANILLA_KEYCHAIN,
+    }
+    online, wallet = utils.wallet.init_wallet(ELECTRUM_URL, wallet_data)
     return {"wallet": wallet, "xpub": keys.xpub, "online": online}
 
 
@@ -265,14 +270,9 @@ def check_receive_asset(app,
 
 
 def _prepare_utxos(app):
-    online, wallet = utils.wallet.init_wallet(
-        app.config["ELECTRUM_URL"],
-        app.config["XPUB"],
-        app.config["MNEMONIC"],
-        app.config["DATA_DIR"],
-        app.config["NETWORK"],
-        app.config['VANILLA_KEYCHAIN'],
-    )
+    wallet_data = wallet_data_from_config(app.config)
+    online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"],
+                                              wallet_data)
     wallet.refresh(online, None, [])
     addr = wallet.get_address()
     fund_address(addr)
@@ -427,6 +427,18 @@ def random_dist_mode(config, req_win_open, req_win_close):
             "request_window_open": datetime.strftime(req_win_open, date_fmt),
             "request_window_close": datetime.strftime(req_win_close, date_fmt),
         },
+    }
+
+
+def req_win_datetimes(dist_conf, date_format):
+    """Return the parsed datetime for request window open/close."""
+    return {
+        'open':
+        datetime.strptime(dist_conf['random_params']['request_window_open'],
+                          date_format),
+        'close':
+        datetime.strptime(dist_conf['random_params']['request_window_close'],
+                          date_format),
     }
 
 

@@ -86,22 +86,13 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     - valid requests are saved, processing is handled by scheduler jobs
     """
     logger = get_logger(__name__)
-    auth = request.headers.get('X-Api-Key')
-    if auth != current_app.config['API_KEY']:
-        return jsonify({'error': 'unauthorized'}), 401
 
-    # get request data
-    data = json.loads(request.data)
-
-    # check wallet_id is valid
-    if not is_walletid_valid(data['wallet_id']):
-        return jsonify({'error': 'invalid wallet ID'}), 403
-
-    # parse invoice
-    try:
-        invoice = rgb_lib.Invoice(data['invoice'])
-    except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
-        return jsonify({'error': 'invalid invoice'}), 403
+    # request checks and data extraction
+    result = _receive_asset_checks(request, current_app.config)
+    if result.get('error'):
+        return jsonify({'error': result['error']}), result['code']
+    data = result['data']
+    invoice = result['invoice']
 
     # refuse witness requests if not allowed for network
     if current_app.config['NETWORK'] not in current_app.config[
@@ -115,9 +106,8 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     # choose asset group
     configured_assets = current_app.config["ASSETS"]
     asset_group = data.get('asset_group')
-    if asset_group is not None:
-        if asset_group not in configured_assets:
-            return jsonify({'error': 'invalid asset group'}), 404
+    if asset_group and asset_group not in configured_assets:
+        return jsonify({'error': 'invalid asset group'}), 404
     asset = None
     if asset_group is None:
         # chose randomly from non-migration groups
@@ -242,3 +232,25 @@ def _is_request_allowed(wallet_id, group_name):
 
     # allow request
     return (True, None)
+
+
+def _receive_asset_checks(req, cfg):
+    # check auth
+    auth = req.headers.get('X-Api-Key')
+    if auth != cfg['API_KEY']:
+        return {'error': 'unauthorized', 'code': 401}
+    # get request data
+    try:
+        data = json.loads(req.data)
+    except json.JSONDecodeError:
+        return {'error': 'invalid request data', 'code': 400}
+    # check wallet_id is valid
+    if data and not is_walletid_valid(data.get('wallet_id')):
+        return {'error': 'invalid wallet ID', 'code': 403}
+    # parse invoice
+    try:
+        invoice = rgb_lib.Invoice(data.get('invoice'))
+    except (rgb_lib.RgbLibError, TypeError):  # pylint: disable=catching-non-exception
+        return {'error': 'invalid invoice', 'code': 403}
+
+    return {'data': data, 'invoice': invoice}

@@ -54,11 +54,15 @@ def entrypoint():
         sys.exit(0)  #
 
     # processing other argument
+    wallet_data = {
+        'xpub': app.config['XPUB'],
+        'mnemonic': app.config['MNEMONIC'],
+        'data_dir': data_dir,
+        'network': network,
+        'keychain': app.config['VANILLA_KEYCHAIN'],
+    }
     online, wallet = utils.wallet.init_wallet(app.config['ELECTRUM_URL'],
-                                              app.config['XPUB'],
-                                              app.config['MNEMONIC'], data_dir,
-                                              network,
-                                              app.config['VANILLA_KEYCHAIN'])
+                                              wallet_data)
 
     if args.address:
         print(f'new {network} wallet address: {wallet.get_address()}')

@@ -16,7 +16,7 @@ from . import control, receive, reserve, tasks
 from .database import Request, db, migrate
 from .scheduler import scheduler
 from .settings import LOGGING, check_config, get_app
-from .utils.wallet import get_sha256_hex, init_wallet
+from .utils.wallet import get_sha256_hex, init_wallet, wallet_data_from_config
 
 
 def print_assets_and_quit(assets, asset_id):
@@ -170,10 +170,9 @@ def create_app(custom_get_app=None, do_init_wallet=True):
 
     # initialize the wallet
     if do_init_wallet:
+        wallet_data = wallet_data_from_config(app.config)
         app.config['ONLINE'], app.config['WALLET'] = init_wallet(
-            app.config['ELECTRUM_URL'], app.config['XPUB'],
-            app.config['MNEMONIC'], app.config['DATA_DIR'],
-            app.config['NETWORK'], app.config['VANILLA_KEYCHAIN'])
+            app.config['ELECTRUM_URL'], wallet_data)
 
     # ensure all the configured assets are available
     wallet = app.config['WALLET']

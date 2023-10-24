@@ -138,7 +138,7 @@ def test_single_asset_false(get_app):
 
     with app.app_context():
         assert Request.query.count() == 2
-        assert all([r.status == 20 for r in Request.query.all()])
+        assert all(r.status == 20 for r in Request.query.all())
 
     # manually trigger the sending function once
     send_next_batch(get_spare_utxos(app.config))
@@ -146,4 +146,4 @@ def test_single_asset_false(get_app):
     # check both assets have been sent (in a single batch)
     with app.app_context():
         assert Request.query.count() == 2
-        assert all([r.status == 40 for r in Request.query.all()])
+        assert all(r.status == 40 for r in Request.query.all())

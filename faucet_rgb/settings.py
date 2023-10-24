@@ -196,32 +196,36 @@ def check_distribution(app, group_name, group_val, errors):
         errors.append(f'error "{err}" {err_end}')
         return
     if dist_mode == DistributionMode.RANDOM:
-        dist_params = dist_conf.get('random_params')
-        if not dist_params:
-            errors.append(f'{err_begin} random params {err_end}')
+        _check_distribution_random(app.config, dist_conf, errors, err_begin,
+                                   err_end)
+
+
+def _check_distribution_random(cfg, dist_conf, errors, err_begin, err_end):
+    dist_params = dist_conf.get('random_params')
+    if not dist_params:
+        errors.append(f'{err_begin} random params {err_end}')
+        return
+    params = ['request_window_open', 'request_window_close']
+    for param in params:
+        par = dist_params.get(param)
+        if not par:
+            errors.append(f'{err_begin} param {param} {err_end}')
             return
-        params = ['request_window_open', 'request_window_close']
-        for param in params:
-            par = dist_params.get(param)
-            if not par:
-                errors.append(f'{err_begin} param {param} {err_end}')
-                return
-            try:
-                datetime.strptime(par, app.config['DATE_FORMAT'])
-            except ValueError as err:
-                errors.append(f'error "{err}" for param {param} {err_end}')
         try:
-            req_win_open = dist_params.get('request_window_open')
-            req_win_close = dist_params.get('request_window_close')
-            if req_win_open and req_win_close:
-                req_win_open = datetime.strptime(req_win_open,
-                                                 app.config['DATE_FORMAT'])
-                req_win_close = datetime.strptime(req_win_close,
-                                                  app.config['DATE_FORMAT'])
-            if req_win_close <= req_win_open:
-                errors.append(f'request window close {err_end} not after open')
-        except ValueError:
-            pass
+            datetime.strptime(par, cfg['DATE_FORMAT'])
+        except ValueError as err:
+            errors.append(f'error "{err}" for param {param} {err_end}')
+    try:
+        req_win_open = dist_params.get('request_window_open')
+        req_win_close = dist_params.get('request_window_close')
+        if req_win_open and req_win_close:
+            req_win_open = datetime.strptime(req_win_open, cfg['DATE_FORMAT'])
+            req_win_close = datetime.strptime(req_win_close,
+                                              cfg['DATE_FORMAT'])
+        if req_win_close <= req_win_open:
+            errors.append(f'request window close {err_end} not after open')
+    except ValueError:
+        pass
 
 
 def check_assets(app):
@@ -230,10 +234,6 @@ def check_assets(app):
     if not app.config['ASSETS']:
         print(' *** WARNING! no configured RGB asset ***')
     for key, val in app.config['ASSETS'].items():
-        if not key:
-            errors.append('empty group key')
-        if not val:
-            errors.append(f'empty configuration for group {key}')
         if not val.get('label'):
             errors.append(f'missing label for group {key}')
         if not val.get('assets'):

@@ -7,11 +7,11 @@ from faucet_rgb import Request
 from faucet_rgb.receive import REASON_MAP
 from faucet_rgb.settings import DistributionMode
 from faucet_rgb.utils.wallet import get_sha256_hex
-from tests.utils import (OPERATOR_HEADERS, USER_HEADERS, create_and_blind,
-                         issue_single_asset_with_supply, prepare_assets,
-                         prepare_user_wallets, random_dist_mode, receive_asset,
-                         wait_sched_process_pending, wait_sched_process_waiting
-                         )
+from tests.utils import (
+    OPERATOR_HEADERS, USER_HEADERS, create_and_blind,
+    issue_single_asset_with_supply, prepare_assets, prepare_user_wallets,
+    random_dist_mode, receive_asset, req_win_datetimes,
+    wait_sched_process_pending, wait_sched_process_waiting)
 
 
 def _app_prep_random_single_asset(app):
@@ -84,14 +84,7 @@ def test_random_single_asset(get_app):
     extra_requests = 1
 
     dist_conf = app.config['ASSETS']['group_1']['distribution']
-    req_win = {
-        'open':
-        datetime.strptime(dist_conf['random_params']['request_window_open'],
-                          app.config['DATE_FORMAT']),
-        'close':
-        datetime.strptime(dist_conf['random_params']['request_window_close'],
-                          app.config['DATE_FORMAT'])
-    }
+    req_win = req_win_datetimes(dist_conf, app.config['DATE_FORMAT'])
 
     # check asset has future balance 2
     res = client.get('/control/assets', headers=OPERATOR_HEADERS)

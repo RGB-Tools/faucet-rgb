@@ -238,6 +238,14 @@ To test the development server (`<wallet_id>` needs to be a valid xpub):
 curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 ```
 
+To format and lint code use:
+```sh
+poetry run isort faucet_rgb/ tests/
+poetry run yapf -r -i faucet_rgb/ tests/
+poetry run pylama faucet_rgb/ tests/
+poetry run pylint faucet_rgb/ tests/
+```
+
 ### Database migration
 Migrations are handles via `flask-migrate`.
 

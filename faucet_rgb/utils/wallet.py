@@ -7,15 +7,27 @@ from hashlib import sha256
 import rgb_lib
 
 
-def init_wallet(electrum_url, xpub, mnemonic, data_dir, network, keychain):
+def wallet_data_from_config(cfg):
+    """Return a wallet data dictionary with data from the app configuration."""
+    return {
+        'xpub': cfg['XPUB'],
+        'mnemonic': cfg['MNEMONIC'],
+        'data_dir': cfg['DATA_DIR'],
+        'network': cfg['NETWORK'],
+        'keychain': cfg['VANILLA_KEYCHAIN'],
+    }
+
+
+def init_wallet(electrum_url, wallet_data):
     """Initialize the wallet."""
     print('Initializing wallet...')
-    if xpub is None:
+    if wallet_data['xpub'] is None:
         print('Wallet XPUB not configured!')
         raise RuntimeError('Faucet unavailable')
-    if mnemonic is None:
+    if wallet_data['mnemonic'] is None:
         print('Wallet mnemonic not configured!')
         raise RuntimeError('Faucet unavailable')
+    network = wallet_data['network']
     if not hasattr(rgb_lib.BitcoinNetwork, network.upper()):
         print(f'unsupported Bitcoin network "{network}"')
         sys.exit(1)
@@ -23,13 +35,13 @@ def init_wallet(electrum_url, xpub, mnemonic, data_dir, network, keychain):
     try:
         wallet = rgb_lib.Wallet(
             rgb_lib.WalletData(
-                data_dir,
+                wallet_data['data_dir'],
                 bitcoin_network,
                 rgb_lib.DatabaseType.SQLITE,
                 1,
-                xpub,
-                mnemonic,
-                keychain,
+                wallet_data['xpub'],
+                wallet_data['mnemonic'],
+                wallet_data['keychain'],
             ))
     except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception
         print('rgb_lib error:', err)
@@ -71,7 +83,8 @@ def is_walletid_valid(wallet_id):
     is_valid = False
     # check it's a SHA256-looking string
     allowed_chars = set(string.digits + string.ascii_lowercase[:6])
-    if len(wallet_id) == 64 and set(wallet_id.lower()) <= allowed_chars:
+    if wallet_id and len(wallet_id) == 64 and set(
+            wallet_id.lower()) <= allowed_chars:
         is_valid = True
     return is_valid
 

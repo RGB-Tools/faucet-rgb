@@ -3,6 +3,7 @@
 import random
 import time
 import uuid
+from datetime import datetime, timedelta
 
 import rgb_lib
 
@@ -12,9 +13,9 @@ from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
     BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
     add_fake_request, check_receive_asset, create_and_blind, generate,
-    prepare_assets, prepare_user_wallets, receive_asset,
-    refresh_and_check_settled, wait_refresh, wait_sched_process_pending,
-    witness)
+    prepare_assets, prepare_user_wallets, random_dist_mode, receive_asset,
+    refresh_and_check_settled, req_win_datetimes, wait_refresh,
+    wait_sched_process_pending, witness)
 
 
 def _app_prep_mainnet(app):
@@ -34,13 +35,10 @@ def _app_prep_mainnet_witness_allowed(app):
 
 def _app_prep_random(app):
     """Prepare app to test random distribution."""
-    dist_mode = {
-        "mode": 2,
-        "random_params": {
-            "request_window_open": '2023-10-18T00:00:00',
-            "request_window_close": '2023-10-19T00:00:00',
-        },
-    }
+    now = datetime.now()
+    req_win_open = now - timedelta(seconds=30)
+    dist_mode = random_dist_mode(app.config, req_win_open,
+                                 req_win_open + timedelta(minutes=1))
     app = prepare_assets(app, "group_1", dist_mode=dist_mode)
     return app
 
@@ -475,15 +473,21 @@ def test_receive_asset(get_app):
     app = get_app()
     client = app.test_client()
 
+    user = prepare_user_wallets(app, 1)[0]
+    wallet_id = get_sha256_hex(user["xpub"])
+
     # auth failure
     res = client.post(api, headers=BAD_HEADERS)
     assert res.status_code == 401
-    # with malformed body
-    res = client.post(api, json={'bad': 'data'}, headers=BAD_HEADERS)
-    assert res.status_code == 401
-
-    user = prepare_user_wallets(app, 1)[0]
-    wallet_id = get_sha256_hex(user["xpub"])
+    # no body
+    res = client.post(api, headers=USER_HEADERS)
+    assert res.status_code == 400
+    # malformed body (no wallet ID)
+    res = client.post(api, json={'bad': 'data'}, headers=USER_HEADERS)
+    assert res.status_code == 403
+    # malformed body (no invoice)
+    res = client.post(api, json={'wallet_id': wallet_id}, headers=USER_HEADERS)
+    assert res.status_code == 403
 
     # check requests with xPub as wallet ID are denied
     resp = client.post(
@@ -608,10 +612,13 @@ def test_receive_asset_random(get_app):
                          create_and_blind(app.config, user))
     assert resp.status_code == 200
     assert 'asset' in resp.json
-    dist_params = resp.json['distribution']['random_params']
-    assert resp.json['distribution']['mode'] == DistributionMode.RANDOM.value
-    assert dist_params['request_window_open'] == '2023-10-18T00:00:00'
-    assert dist_params['request_window_close'] == '2023-10-19T00:00:00'
+    dist_conf = app.config['ASSETS']['group_1']['distribution']
+    dist_resp = resp.json['distribution']
+    assert dist_resp['mode'] == DistributionMode.RANDOM.value
+    req_win_cfg = req_win_datetimes(dist_conf, app.config['DATE_FORMAT'])
+    req_win_resp = req_win_datetimes(dist_resp, app.config['DATE_FORMAT'])
+    assert req_win_resp['open'] == req_win_cfg['open']
+    assert req_win_resp['close'] == req_win_cfg['close']
 
 
 def test_receive_config(get_app):
@@ -647,14 +654,16 @@ def test_receive_config_random(get_app):
     wallet_id = get_sha256_hex(xpub)
 
     resp = client.get(f"{api}/{wallet_id}", headers=USER_HEADERS)
-    print('resp:', resp.json)
     assert resp.status_code == 200
     group = resp.json['groups']['group_1']
     assert group['label'] == 'group_1 for the test'
-    dist_params = group['distribution']['random_params']
+    dist_conf = app.config['ASSETS']['group_1']['distribution']
+    dist_resp = group['distribution']
     assert group['distribution']['mode'] == 2
-    assert dist_params['request_window_open'] == '2023-10-18T00:00:00'
-    assert dist_params['request_window_close'] == '2023-10-19T00:00:00'
+    req_win_cfg = req_win_datetimes(dist_conf, app.config['DATE_FORMAT'])
+    req_win_resp = req_win_datetimes(dist_resp, app.config['DATE_FORMAT'])
+    assert req_win_resp['open'] == req_win_cfg['open']
+    assert req_win_resp['close'] == req_win_cfg['close']
     assert 'requests_left' in group
 
 
