@@ -25,33 +25,64 @@ variables:
 The `ASSETS` variable is a dictionary with group names (strings) as keys. Each
 group is a dictionary with the following fields:
 - `label` (string): a label for the group
+- `distribution` (dictionary):
+  - `mode` (int): 1 for standard, 2 for random
+  - `random_params` (dictionary): only required for random mode
+    - `request_window_open`: date and time for the opening of the request window
+    - `request_window_close`:  date and time for the closing of the request window
 - `assets` (list): a list of dictionaries, with each entry having the following
   items:
   - `asset_id` (string): the ID of the asset
   - `amount` (int): the amount to be sent to each recipient
+
+Note: request window open/close don't include a UTC offset, so they should
+represent UTC time.
+
+Standard distribution mode collects requests as pending and periodically serves
+them in batches.
+
+Random distribution collects requests inside a request window (requests are
+otherwise not allowed) as waiting and, once the request window closes, selects
+a number of them (equal to the available assets) at random and sets them as
+pending (in order to be served) while the remaining ones are set as unmet (and
+will never be served).
 
 An example `ASSETS` declaration:
 ```python
 ASSETS = {
     'group_1': {
         'label': 'asset group one',
-        'assets': [{
-            'asset_id': 'rgb1aaa...',
-            'amount': 1,
-        }, {
-            'asset_id': 'rgb1bbb...',
-            'amount': 7,
-        }]
+        'distribution': {
+            'mode': 1,
+        }
+        'assets': [
+            {
+                'asset_id': 'rgb1aaa...',
+                'amount': 1,
+            }, {
+                'asset_id': 'rgb1bbb...',
+                'amount': 7,
+            },
+        ]
     },
     'group_2': {
         'label': 'asset group two',
-        'assets': [{
-            'asset_id': 'rgb1ccc...',
-            'amount': 42,
-        }, {
-            'asset_id': 'rgb1ddd...',
-            'amount': 4,
-        }]
+        'distribution': {
+            'mode': 2,
+            'random_params': {
+                'request_window_open': '2023-10-16T00:00:00+00:00',
+                'request_window_close': '2023-10-16T23:59:59+00:00',
+            }
+        }
+        'assets': [
+            {
+                'asset_id': 'rgb1ccc...',
+                'amount': 42,
+            }, {
+                'asset_id': 'rgb1ddd...',
+                'amount': 4,
+            },
+        ]
     },
 }
 ```
