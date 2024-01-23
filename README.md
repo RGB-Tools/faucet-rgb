@@ -407,5 +407,5 @@ Notes:
   option
 - code coverate HTML report is saved in the `htmlcov` directory
 
-[rgb-proxy-server]: https://github.com/grunch/rgb-proxy-server
+[rgb-proxy-server]: https://github.com/RGB-Tools/rgb-proxy-server
 [Initial setup example]: #initial-setup-example

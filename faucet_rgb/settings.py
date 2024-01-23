@@ -37,7 +37,7 @@ class Config():  # pylint: disable=too-few-public-methods
     BEHIND_PROXY = False
     # list of transport endpoints, for invoices created by the faucet
     # see https://github.com/RGB-Tools/rgb-http-json-rpc for the spec
-    # see https://github.com/grunch/rgb-proxy-server for the implementation
+    # see https://github.com/RGB-Tools/rgb-proxy-server for the implementation
     TRANSPORT_ENDPOINTS = ['rpc://proxy.iriswallet.com/0.2/json-rpc']
     # faucet SQLite3 database file name
     DATABASE_NAME = 'db.sqlite3'
