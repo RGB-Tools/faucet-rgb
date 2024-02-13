@@ -1,0 +1,21 @@
+*
+
+# code
+!faucet_rgb/
+!migrations/
+
+# docs
+!LICENSE
+!README.md
+
+# packaging
+!poetry.lock
+!pyproject.toml
+
+# scripts
+!issue_asset.py
+!wallet_helper.py
+
+# ignore python generated files (including inside excluded dirs)
+**/__pycache__
+**/.pyc

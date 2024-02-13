@@ -8,7 +8,10 @@
 /instance
 
 # data
+/config.py
 /data
+/faucet_data
+/service_data
 /test_data
 /docker/tmp
 /docker/data

@@ -54,7 +54,7 @@ ASSETS = {
         'label': 'asset group one',
         'distribution': {
             'mode': 1,
-        }
+        },
         'assets': [
             {
                 'asset_id': 'rgb1aaa...',
@@ -278,6 +278,25 @@ To test the production server locally (`<wallet_id>` needs to be a valid xpub):
 ```shell
 curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 ```
+
+## Docker
+
+A `Dockerfile` is available to build a docker image that runs the faucet. The
+`docker-compose.yml` file allows to run a faucet along with a complete regtest
+environment.
+
+The docker compose file uses the `service_data` directory for service data and
+`faucet_data` as the data directory for the faucet. It also expects the file
+`config.py` (faucet configuration file) to exist. The `faucet_data` dir needs
+to be owned by user and group `1000. All paths are relative to the project
+root. Note that if the faucet is started via docker compose while `config.py`
+doesn't exist, docker will create a directory with the same name instead, which
+will need to be replaced with the correct file for the faucet to work.
+
+Since the faucet needs to be configured before it can run (see the [Initial
+setup example] section below), the `docker_regtest_setup.sh` script is
+available to automate such initial setup in docker for the simple case of a
+regtest faucet distributing a single NIA asset.
 
 ## Initial setup example
 

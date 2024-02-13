@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  faucet:
+    image: faucet-rgb
+    build: .
+    environment:
+      FAUCET_SETTINGS: /home/faucet/config.py
+    volumes:
+      - ./config.py:/home/faucet/config.py:ro
+      - ./faucet_data:/home/faucet/data:rw
+    ports:
+      - 8080:8080
+    depends_on:
+      - electrs
+      - proxy
+  bitcoind:
+    image: registry.gitlab.com/hashbeam/docker/bitcoind:25.0
+    command: "-fallbackfee=0.0002"
+    volumes:
+      - ./service_data/bitcoin:/srv/app/.bitcoin
+  electrs:
+    image: registry.gitlab.com/hashbeam/docker/electrs:0.9.14
+    volumes:
+      - ./service_data/electrs:/srv/app/db
+    ports:
+      - 50001:50001
+    depends_on:
+      - bitcoind
+  proxy:
+    image: ghcr.io/rgb-tools/rgb-proxy-server:0.2.1
+    ports:
+      - 3000:3000
