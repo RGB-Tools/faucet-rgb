@@ -27,7 +27,8 @@ def _issue_asset(wallet, online, args):
         if not args.ticker:
             print('missing ticker, which is required for NIA assets')
             sys.exit(1)
-        _confirm_summary(args, common + ['ticker'])
+        if not args.unattended:
+            _confirm_summary(args, common + ['ticker'])
         asset = wallet.issue_asset_nia(online, args.ticker, args.name,
                                        args.precision, args.amounts)
     elif args.schema.lower() == 'cfa':
@@ -60,6 +61,10 @@ def entrypoint():
     parser.add_argument('--file_path',
                         nargs='?',
                         help='path to media file for CFA assets')
+    # optional confirmation check skipping
+    parser.add_argument('--unattended',
+                        action='store_true',
+                        help='issue without prompting for confirmation')
     args = parser.parse_args()
 
     app = settings.get_app(__name__)
