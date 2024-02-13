@@ -6,28 +6,28 @@ authors = ['Zoe Faltibà <zoefaltiba@gmail.com>', 'Nicola Busanello <nicola.busa
 license = 'MIT'
 
 [tool.poetry.dependencies]
-Flask = '^2.3.3'
-Flask-APScheduler = "^1.13.0"
+Flask = '^3.0.2'
+Flask-APScheduler = "^1.13.1"
 flask-migrate = "^4.0.5"
 flask-sqlalchemy = "^3.1.1"
 python = '^3.9'
-rgb-lib = '0.2.0a6'
+rgb-lib = '0.2.0'
 
 [tool.poetry.group.dev.dependencies]
-isort = "^5.12.0"
+isort = "^5.13.2"
 pylama = "^8.4.1"
-pylint = "^2.17.4"
+pylint = "^3.0.3"
 toml = "^0.10.2"
-yapf = "^0.40.0"
-pytest = "^7.4.2"
+yapf = "^0.40.2"
+pytest = "^8.0.0"
 pytest-cov = "^4.1.0"
-setuptools = "68.2.2"
+setuptools = "69.1.0"
 
 [tool.poetry.group.production.dependencies]
-waitress = "^2.1.2"
+waitress = "^3.0.0"
 
 [tool.poetry.group.scripts.dependencies]
-rich = "^12.6.0"
+rich = "^13.7.0"
 
 [tool.isort]
 filter_files = true
