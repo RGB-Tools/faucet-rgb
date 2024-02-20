@@ -50,6 +50,7 @@ mine() {
 start() {
     stop
 
+    rm -rf $DATA_DIR
     mkdir -p $DATA_DIR
     # see docker-compose.yml for the exposed ports
     EXPOSED_PORTS=(3000 50001)
@@ -82,7 +83,6 @@ start() {
 
 stop() {
     $COMPOSE down -v --remove-orphans
-    rm -rf $DATA_DIR
 }
 
 # make sure to cleanup on exit
