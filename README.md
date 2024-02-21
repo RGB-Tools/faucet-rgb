@@ -242,8 +242,9 @@ To format and lint code use:
 ```sh
 poetry run isort faucet_rgb/ tests/
 poetry run yapf -r -i faucet_rgb/ tests/
-poetry run pylama faucet_rgb/ tests/
+poetry run flake8 faucet_rgb/ tests/
 poetry run pylint faucet_rgb/ tests/
+poetry run vulture faucet_rgb/ tests/
 ```
 
 ### Database migration
