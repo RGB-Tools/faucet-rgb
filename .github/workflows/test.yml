@@ -1,0 +1,25 @@
+name: test
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install poetry
+        uses: Gr1N/setup-poetry@v9
+
+      - name: Install dependencies
+        run: poetry install --without production
+
+      - name: Test
+        run: poetry run pytest
