@@ -175,7 +175,7 @@ def test_random_single_asset(get_app):
     assert result['unmet'] == extra_requests
 
 
-def test_random_multiple_assets(get_app):
+def test_random_multiple_assets(get_app):  # pylint: disable=too-many-locals
     """Test random distribtion mode with multiple assets."""
     app = get_app(_app_prep_random_multiple_assets)
     client = app.test_client()
@@ -224,12 +224,19 @@ def test_random_multiple_assets(get_app):
     wait_sched_process_pending(app)
     time.sleep(5)  # give the scheduler time to complete the send
 
-    # check requests have been moved to served or unmet status
+    # wait for requests to have moved to served or unmet status
     with app.app_context():
-        # <asset_balance> requests expected in status served
-        assert Request.query.filter_by(status=40).count() == asset_balance * 2
-        # <extra_requests> requests expected in status unmet (not selected)
-        assert Request.query.filter_by(status=45).count() == extra_requests * 2
+        deadline = time.time() + 30
+        while True:
+            time.sleep(2)
+            # <asset_balance> requests expected in status served
+            # <extra_requests> requests expected in status unmet (not selected)
+            served = Request.query.filter_by(status=40).count()
+            unmet = Request.query.filter_by(status=45).count()
+            if served == asset_balance * 2 and unmet  == extra_requests * 2:
+                break
+            if time.time() > deadline:
+                raise RuntimeError('requests not getting served or unmet as expected')
 
     # check 1 asset has been received by the user of each chosen request
     result = {
