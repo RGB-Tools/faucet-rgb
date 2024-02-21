@@ -453,6 +453,28 @@ def wait_refresh(wallet, online, asset=None):
     print('refreshed')
 
 
+def wait_xfer_status(wallet, online, asset_id, xfer_id, expected_status):
+    """Wait for transfer with provided id to be in the expected status."""
+    print(f'waiting for transfer {xfer_id} to be {expected_status}...')
+    status = getattr(rgb_lib.TransferStatus, expected_status.upper())
+    deadline = time.time() + 30
+    while True:
+        try:
+            wallet.refresh(online, None, [])
+            xfers = wallet.list_transfers(asset_id)
+        except rgb_lib.RgbLibError.AssetNotFound:
+            print("asset not found")
+            time.sleep(1)
+            continue
+        for xfer in xfers:
+            if xfer.idx == xfer_id and xfer.status == status:
+                print(f'transfer {xfer_id} is {expected_status}')
+                return
+        if time.time() > deadline:
+            raise RuntimeError(f'transfer {xfer_id} not {expected_status}')
+        time.sleep(1)
+
+
 def refresh_and_check_settled(client, config, asset_id):
     """Check that the transfer is settled."""
     resp = client.get(f"/control/refresh/{asset_id}", headers=OPERATOR_HEADERS)

@@ -11,11 +11,11 @@ from faucet_rgb import Request, scheduler
 from faucet_rgb.settings import DistributionMode
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
-    BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, USER_HEADERS,
+    BAD_HEADERS, ISSUE_AMOUNT, OPERATOR_HEADERS, SEND_AMOUNT, USER_HEADERS,
     add_fake_request, check_receive_asset, create_and_blind, generate,
     prepare_assets, prepare_user_wallets, random_dist_mode, receive_asset,
     refresh_and_check_settled, req_win_datetimes, wait_refresh,
-    wait_sched_process_pending, witness)
+    wait_sched_process_pending, wait_xfer_status, witness)
 
 
 def _app_prep_mainnet(app):
@@ -729,13 +729,14 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
     asset_id = asset['asset_id']
     starting_balance = wallet.get_asset_balance(asset_id).settled
     wait_sched_process_pending(app)
-    wait_refresh(user['wallet'], user['online'])
+    wait_xfer_status(user['wallet'], user['online'], asset_id, 1,
+                     'WAITING_CONFIRMATIONS')
+    # check balance updates once the transfer is SETTLED
     generate(1)
-    wait_refresh(user['wallet'], user['online'])
-    # wait for transfer to settle on the faucet side
-    while wallet.get_asset_balance(asset_id).settled == starting_balance:
-        time.sleep(2)
+    wait_xfer_status(user['wallet'], user['online'], asset_id, 1, 'SETTLED')
+    wait_xfer_status(wallet, app.config['ONLINE'], asset_id, 3, 'SETTLED')
     balance_1 = wallet.get_asset_balance(asset_id)
+    assert balance_1.settled == (starting_balance - SEND_AMOUNT)
 
     # send some assets from the user to the faucet wallet
     resp = client.get(
@@ -761,16 +762,18 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
                                app.config['FEE_RATE'],
                                app.config['MIN_CONFIRMATIONS'])
     assert txid
-    wait_refresh(wallet, app.config['ONLINE'])
-    # check future balance updates once the transfer is in WAITING_CONFIRMATIONS
+    # check balance updates once the transfer is WAITING_CONFIRMATIONS
+    wait_xfer_status(wallet, app.config['ONLINE'], asset_id, 4,
+                     'WAITING_CONFIRMATIONS')
     balance_2 = wallet.get_asset_balance(asset_id)
     assert balance_2.settled == balance_1.settled
     assert balance_2.future == balance_1.future + amount
     assert balance_2.spendable == balance_1.spendable
-    # check settled + spendable balances update after the tx gets confirmed
+    # check balance updates once the transfer is SETTLED
     generate(1)
-    wait_refresh(wallet, app.config['ONLINE'])
-    wait_refresh(user['wallet'], user['online'])
+    wait_xfer_status(wallet, app.config['ONLINE'], asset_id, 4, 'SETTLED')
+    wait_xfer_status(user['wallet'], user['online'], asset_id, 2, 'SETTLED')
     balance_3 = wallet.get_asset_balance(asset_id)
-    assert balance_3.settled == balance_1.settled + amount
-    assert balance_3.spendable == balance_1.spendable + amount
+    assert balance_3.settled == balance_2.settled + amount
+    assert balance_3.future == balance_2.future
+    assert balance_3.spendable == balance_2.spendable + amount
