@@ -20,6 +20,7 @@ STATUS_MAP = {
 
 class Request(db.Model):  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Request model."""
+
     idx = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.Integer, nullable=False)
     status = db.Column(db.Integer, nullable=False)
@@ -31,8 +32,7 @@ class Request(db.Model):  # pylint: disable=too-few-public-methods,too-many-inst
     amount = db.Column(db.Integer, nullable=True)
 
     # pylint: disable=too-many-arguments
-    def __init__(self, wallet_id, recipient_id, invoice, asset_group, asset_id,
-                 amount):
+    def __init__(self, wallet_id, recipient_id, invoice, asset_group, asset_id, amount):
         # pylint: disable=too-many-arguments
         self.timestamp = get_current_timestamp()
         self.status = 10
@@ -44,6 +44,8 @@ class Request(db.Model):  # pylint: disable=too-few-public-methods,too-many-inst
         self.amount = amount
 
     def __str__(self):
-        return (f'{STATUS_MAP[self.status]} {self.timestamp} '
-                f'{self.wallet_id} {self.recipient_id} {self.invoice} '
-                f'{self.asset_group} {self.asset_id} {self.amount}')
+        return (
+            f"{STATUS_MAP[self.status]} {self.timestamp} "
+            f"{self.wallet_id} {self.recipient_id} {self.invoice} "
+            f"{self.asset_group} {self.asset_id} {self.amount}"
+        )

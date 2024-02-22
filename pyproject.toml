@@ -1,17 +1,17 @@
 [tool.poetry]
-name = 'faucet-rgb'
-version = '0.1.0'
-description = 'RGB faucet'
-authors = ['Zoe Faltibà <zoefaltiba@gmail.com>', 'Nicola Busanello <nicola.busanello@gmail.com>']
-license = 'MIT'
+name = "faucet-rgb"
+version = "0.1.0"
+description = "RGB faucet"
+authors = ["Zoe Faltibà <zoefaltiba@gmail.com>", "Nicola Busanello <nicola.busanello@gmail.com>"]
+license = "MIT"
 
 [tool.poetry.dependencies]
-Flask = '^3.0.2'
+Flask = "^3.0.2"
 Flask-APScheduler = "^1.13.1"
 flask-migrate = "^4.0.5"
 flask-sqlalchemy = "^3.1.1"
-python = '^3.9'
-rgb-lib = '0.2.0'
+python = "^3.9"
+rgb-lib = "0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pylint = "^3.0.3"
@@ -37,9 +37,9 @@ target_version = ["py39", "py310", "py311", "py312"]
 min_confidence = 100
 
 [build-system]
-requires = ['poetry-core>=1.0.0']
-build-backend = 'poetry.core.masonry.api'
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-issue-asset = 'issue_asset:entrypoint'
-wallet-helper = 'wallet_helper:entrypoint'
+issue-asset = "issue_asset:entrypoint"
+wallet-helper = "wallet_helper:entrypoint"

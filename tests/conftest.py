@@ -42,18 +42,18 @@ def get_app():
     return _get_app
 
 
-@pytest.fixture(autouse=True, scope='function')
+@pytest.fixture(autouse=True, scope="function")
 def shutdown_scheduler():
     """Shutdown the scheduler after each test."""
     yield
-    print('shutting down scheduler...')
+    print("shutting down scheduler...")
     try:
         scheduler.shutdown()
     except SchedulerNotRunningError:
-        print('could not shut down the scheduler (not running)')
+        print("could not shut down the scheduler (not running)")
 
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True, scope="session")
 def start_services():
     """Start/stop services required for tests to run."""
     subprocess.run(

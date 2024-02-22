@@ -36,7 +36,7 @@ ELECTRUM_URL = "tcp://localhost:50001"
 NETWORK = "regtest"
 USER_HEADERS = {"x-api-key": Config.API_KEY}
 OPERATOR_HEADERS = {"x-api-key": Config.API_KEY_OPERATOR}
-BAD_HEADERS = {"x-api-key": 'wrongkey'}
+BAD_HEADERS = {"x-api-key": "wrongkey"}
 ISSUE_AMOUNT = 1000
 SEND_AMOUNT = 100
 
@@ -89,11 +89,11 @@ def _wait_electrs_sync():
     # wait for electrs the have reached the same height
     electrum = urllib.parse.urlparse(ELECTRUM_URL)
     message = {
-        'method': 'blockchain.block.header',
-        'params': [height],
-        'id': 1,
+        "method": "blockchain.block.header",
+        "params": [height],
+        "id": 1,
     }
-    request = json.dumps(message).encode('utf-8') + b'\n'
+    request = json.dumps(message).encode("utf-8") + b"\n"
     while True:
         time.sleep(0.1)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -102,22 +102,22 @@ def _wait_electrs_sync():
             sock.sendall(request)
             res = sock.recv(1024)
         response = json.loads(res)
-        if response.get('result'):
-            print('new height:', height)
+        if response.get("result"):
+            print("new height:", height)
             break
         if time.time() > deadline:
-            raise RuntimeError('electrs not syncing with bitcoind')
+            raise RuntimeError("electrs not syncing with bitcoind")
 
 
 def _get_user_wallet(data_dir):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
     wallet_data = {
-        'xpub': keys.xpub,
-        'mnemonic': keys.mnemonic,
-        'data_dir': data_dir,
-        'network': NETWORK,
-        'keychain': Config.VANILLA_KEYCHAIN,
+        "xpub": keys.xpub,
+        "mnemonic": keys.mnemonic,
+        "data_dir": data_dir,
+        "network": NETWORK,
+        "keychain": Config.VANILLA_KEYCHAIN,
     }
     online, wallet = utils.wallet.init_wallet(ELECTRUM_URL, wallet_data)
     return {"wallet": wallet, "xpub": keys.xpub, "online": online}
@@ -153,8 +153,7 @@ def issue_single_asset_with_supply(app, supply):
     """
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, app.config['UTXO_SIZE'],
-                        app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"])
     cfa = wallet.issue_asset_cfa(
         online,
         name="test with single CFA asset",
@@ -188,35 +187,29 @@ def check_requests_left(app, xpub, group_to_requests_left):
 def create_and_blind(config, user):
     """Create up to 1 UTXO and return an invoice with a blinded UTXO."""
     wallet = user["wallet"]
-    _ = wallet.create_utxos(user["online"], True, 1, config['UTXO_SIZE'],
-                            config["FEE_RATE"])
-    receive_data = wallet.blind_receive(None, None, None,
-                                        config["TRANSPORT_ENDPOINTS"],
-                                        config['MIN_CONFIRMATIONS'])
+    _ = wallet.create_utxos(user["online"], True, 1, config["UTXO_SIZE"], config["FEE_RATE"])
+    receive_data = wallet.blind_receive(
+        None, None, None, config["TRANSPORT_ENDPOINTS"], config["MIN_CONFIRMATIONS"]
+    )
     return receive_data.invoice
 
 
 def witness(config, user):
     """Create up to 1 UTXO and return an invoice for a witness tx."""
     receive_data = user["wallet"].witness_receive(
-        None, None, None, config["TRANSPORT_ENDPOINTS"],
-        config['MIN_CONFIRMATIONS'])
+        None, None, None, config["TRANSPORT_ENDPOINTS"], config["MIN_CONFIRMATIONS"]
+    )
     return receive_data.invoice
 
 
 def add_fake_request(  # pylint: disable=too-many-arguments
-        app,
-        user,
-        asset_group,
-        status,
-        amount=None,
-        asset_id=None,
-        hash_wallet_id=False):
+    app, user, asset_group, status, amount=None, asset_id=None, hash_wallet_id=False
+):
     """Add a request to DB to simulate a previous request."""
     if amount is None:
-        amount = app.config['ASSETS'][asset_group]['assets'][0]['amount']
+        amount = app.config["ASSETS"][asset_group]["assets"][0]["amount"]
     if asset_id is None:
-        asset_id = app.config['ASSETS'][asset_group]['assets'][0]['asset_id']
+        asset_id = app.config["ASSETS"][asset_group]["assets"][0]["asset_id"]
     wallet_id = user["xpub"]
     if hash_wallet_id:
         wallet_id = get_sha256_hex(wallet_id)
@@ -224,17 +217,28 @@ def add_fake_request(  # pylint: disable=too-many-arguments
     invoice_data = rgb_lib.Invoice(invoice).invoice_data()
     with app.app_context():
         db.session.add(
-            Request(wallet_id, invoice_data.recipient_id, invoice, asset_group,
-                    asset_id, amount))
-        req = Request.query.filter(Request.wallet_id == wallet_id,
-                                   Request.invoice == invoice,
-                                   Request.asset_group == asset_group,
-                                   Request.status == 10)
+            Request(
+                wallet_id,
+                invoice_data.recipient_id,
+                invoice,
+                asset_group,
+                asset_id,
+                amount,
+            )
+        )
+        req = Request.query.filter(
+            Request.wallet_id == wallet_id,
+            Request.invoice == invoice,
+            Request.asset_group == asset_group,
+            Request.status == 10,
+        )
         assert req.count() == 1
         req_idx = req.first().idx
-        Request.query.filter_by(idx=req_idx).update({
-            "status": status,
-        })
+        Request.query.filter_by(idx=req_idx).update(
+            {
+                "status": status,
+            }
+        )
         db.session.commit()
 
 
@@ -243,25 +247,23 @@ def receive_asset(client, xpub, invoice):
     return client.post(
         "/receive/asset",
         json={
-            'wallet_id': get_sha256_hex(xpub),
-            'invoice': invoice,
+            "wallet_id": get_sha256_hex(xpub),
+            "invoice": invoice,
         },
         headers=USER_HEADERS,
     )
 
 
-def check_receive_asset(app,
-                        user,
-                        group_to_request,
-                        expected_status_code=200,
-                        expected_asset_id_list=None):
+def check_receive_asset(
+    app, user, group_to_request, expected_status_code=200, expected_asset_id_list=None
+):
     """Check the /receive/asset endpoint."""
     payload = {
-        'wallet_id': get_sha256_hex(user["xpub"]),
-        'invoice': create_and_blind(app.config, user)
+        "wallet_id": get_sha256_hex(user["xpub"]),
+        "invoice": create_and_blind(app.config, user),
     }
     if group_to_request:
-        payload['asset_group'] = group_to_request
+        payload["asset_group"] = group_to_request
     client = app.test_client()
     resp = client.post("/receive/asset", json=payload, headers=USER_HEADERS)
     assert resp.status_code == expected_status_code
@@ -271,8 +273,7 @@ def check_receive_asset(app,
 
 def _prepare_utxos(app):
     wallet_data = wallet_data_from_config(app.config)
-    online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"],
-                                              wallet_data)
+    online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"], wallet_data)
     wallet.refresh(online, None, [])
     addr = wallet.get_address()
     fund_address(addr)
@@ -297,8 +298,7 @@ def _issue_asset(app):
     _ASSET_COUNT += 1
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, app.config['UTXO_SIZE'],
-                        app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"])
     nia = wallet.issue_asset_nia(
         online,
         ticker=f"TFT{_ASSET_COUNT}",
@@ -317,11 +317,9 @@ def _issue_asset(app):
     return [nia.asset_id, cfa.asset_id]
 
 
-def prepare_assets(app,
-                   group_name="group_1",
-                   dist_mode=None,
-                   issue_func=None,
-                   send_amount=SEND_AMOUNT):
+def prepare_assets(
+    app, group_name="group_1", dist_mode=None, issue_func=None, send_amount=SEND_AMOUNT
+):
     """Issue (NIA, CFA) asset pair and set the config for the app.
 
     Issue ISSUE_AMOUNT units for each asset.
@@ -388,12 +386,12 @@ def _reconfigure_test_app(config):
     app = _get_test_base_app()
 
     # re-configure wallet and assets
-    app.config["FINGERPRINT"] = config['FINGERPRINT']
-    app.config["MNEMONIC"] = config['MNEMONIC']
-    app.config["XPUB"] = config['XPUB']
-    app.config["WALLET"] = config['WALLET']
-    app.config["ASSETS"] = config['ASSETS']
-    app.config["ASSET_MIGRATION_MAP"] = config['ASSET_MIGRATION_MAP']
+    app.config["FINGERPRINT"] = config["FINGERPRINT"]
+    app.config["MNEMONIC"] = config["MNEMONIC"]
+    app.config["XPUB"] = config["XPUB"]
+    app.config["WALLET"] = config["WALLET"]
+    app.config["ASSETS"] = config["ASSETS"]
+    app.config["ASSET_MIGRATION_MAP"] = config["ASSET_MIGRATION_MAP"]
 
     return app
 
@@ -413,14 +411,14 @@ def create_test_app(config=None, custom_app_prep=None):
             return _reconfigure_test_app(config)
         if custom_app_prep:
             return _prepare_test_app(custom_app_prep)
-        raise RuntimeError('config or custom_app_prep expected')
+        raise RuntimeError("config or custom_app_prep expected")
 
     return create_app(_custom_get_app, False)
 
 
 def random_dist_mode(config, req_win_open, req_win_close):
     """Return dist_mode dict for random distribution."""
-    date_fmt = config['DATE_FORMAT']
+    date_fmt = config["DATE_FORMAT"]
     return {
         "mode": 2,
         "random_params": {
@@ -433,29 +431,25 @@ def random_dist_mode(config, req_win_open, req_win_close):
 def req_win_datetimes(dist_conf, date_format):
     """Return the parsed datetime for request window open/close."""
     return {
-        'open':
-        datetime.strptime(dist_conf['random_params']['request_window_open'],
-                          date_format),
-        'close':
-        datetime.strptime(dist_conf['random_params']['request_window_close'],
-                          date_format),
+        "open": datetime.strptime(dist_conf["random_params"]["request_window_open"], date_format),
+        "close": datetime.strptime(dist_conf["random_params"]["request_window_close"], date_format),
     }
 
 
 def wait_refresh(wallet, online, asset=None):
     """Wait for refresh to return true (a transfer has changed)."""
-    print('waiting for refresh to return True...')
+    print("waiting for refresh to return True...")
     deadline = time.time() + 30
     while not wallet.refresh(online, asset, []):
         if time.time() > deadline:
-            raise RuntimeError('refresh not returning True')
+            raise RuntimeError("refresh not returning True")
         time.sleep(1)
-    print('refreshed')
+    print("refreshed")
 
 
 def wait_xfer_status(wallet, online, asset_id, xfer_id, expected_status):
     """Wait for transfer with provided id to be in the expected status."""
-    print(f'waiting for transfer {xfer_id} to be {expected_status}...')
+    print(f"waiting for transfer {xfer_id} to be {expected_status}...")
     status = getattr(rgb_lib.TransferStatus, expected_status.upper())
     deadline = time.time() + 30
     while True:
@@ -468,10 +462,10 @@ def wait_xfer_status(wallet, online, asset_id, xfer_id, expected_status):
             continue
         for xfer in xfers:
             if xfer.idx == xfer_id and xfer.status == status:
-                print(f'transfer {xfer_id} is {expected_status}')
+                print(f"transfer {xfer_id} is {expected_status}")
                 return
         if time.time() > deadline:
-            raise RuntimeError(f'transfer {xfer_id} not {expected_status}')
+            raise RuntimeError(f"transfer {xfer_id} not {expected_status}")
         time.sleep(1)
 
 
@@ -479,17 +473,15 @@ def refresh_and_check_settled(client, config, asset_id):
     """Check that the transfer is settled."""
     resp = client.get(f"/control/refresh/{asset_id}", headers=OPERATOR_HEADERS)
     assert resp.status_code == 200
-    assert resp.json['result'] is True
-    asset_transfers = config['WALLET'].list_transfers(asset_id)
-    transfer = [
-        t for t in asset_transfers if t.kind == rgb_lib.TransferKind.SEND
-    ][0]
+    assert resp.json["result"] is True
+    asset_transfers = config["WALLET"].list_transfers(asset_id)
+    transfer = [t for t in asset_transfers if t.kind == rgb_lib.TransferKind.SEND][0]
     assert transfer.status == rgb_lib.TransferStatus.SETTLED
 
 
 def wait_sched_process_pending(app):
     """Wait for scheduler to process pending requests and generate blocks."""
-    print('waiting for scheduler to process PENDING requests...')
+    print("waiting for scheduler to process PENDING requests...")
     assert scheduler.state == STATE_RUNNING
     with app.app_context():
         deadline = time.time() + 30
@@ -498,16 +490,16 @@ def wait_sched_process_pending(app):
             pending_requests = Request.query.filter(Request.status == 20)
             if not pending_requests.count():
                 break
-            print('pending requests:', pending_requests.count())
+            print("pending requests:", pending_requests.count())
             if time.time() > deadline:
-                raise RuntimeError('pending requests not getting served')
+                raise RuntimeError("pending requests not getting served")
             generate(1)
-    print('processed PENDING requests')
+    print("processed PENDING requests")
 
 
 def wait_sched_process_waiting(app):
     """Wait for scheduler to process waiting requests."""
-    print('waiting for scheduler to process WAITING requests...')
+    print("waiting for scheduler to process WAITING requests...")
     assert scheduler.state == STATE_RUNNING
     with app.app_context():
         deadline = time.time() + 30
@@ -516,27 +508,26 @@ def wait_sched_process_waiting(app):
             waiting_requests = Request.query.filter(Request.status == 25)
             if not waiting_requests.count():
                 break
-            print('waiting requests:', waiting_requests.count())
+            print("waiting requests:", waiting_requests.count())
             if time.time() > deadline:
-                raise RuntimeError('waiting requests not getting processed')
-    print('processed WAITING requests')
+                raise RuntimeError("waiting requests not getting processed")
+    print("processed WAITING requests")
 
 
 def wait_sched_create_utxos(app):
     """Wait for scheduler to create new UTXOs."""
     assert scheduler.state == STATE_RUNNING
-    print('waiting for scheduler to create UTXOs...')
-    unspents = app.config['WALLET'].list_unspents(app.config['ONLINE'], False)
+    print("waiting for scheduler to create UTXOs...")
+    unspents = app.config["WALLET"].list_unspents(app.config["ONLINE"], False)
     starting_unspents = len(unspents)
     with app.app_context():
         deadline = time.time() + 30
         while True:
             time.sleep(2)
-            unspents = app.config['WALLET'].list_unspents(
-                app.config['ONLINE'], False)
+            unspents = app.config["WALLET"].list_unspents(app.config["ONLINE"], False)
             if len(unspents) > starting_unspents:
                 break
             if time.time() > deadline:
-                raise RuntimeError('pending requests not getting served')
+                raise RuntimeError("pending requests not getting served")
             # generate(1)
-    print('new UTXOs created')
+    print("new UTXOs created")

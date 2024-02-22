@@ -8,9 +8,15 @@ from faucet_rgb.scheduler import send_next_batch
 from faucet_rgb.utils import get_spare_available, get_spare_utxos
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
-    USER_HEADERS, issue_single_asset_with_supply, prepare_assets,
-    prepare_user_wallets, receive_asset, wait_sched_create_utxos,
-    wait_sched_process_pending, witness)
+    USER_HEADERS,
+    issue_single_asset_with_supply,
+    prepare_assets,
+    prepare_user_wallets,
+    receive_asset,
+    wait_sched_create_utxos,
+    wait_sched_process_pending,
+    witness,
+)
 
 
 def _app_prep_single_asset_false(app):
@@ -23,10 +29,7 @@ def _app_prep_single_asset_false(app):
 
 def _app_prep_create_witness_utxos(app):
     """Prepare app to test UTXO creation for witness batch transfers."""
-    app = prepare_assets(app,
-                         "group_1",
-                         issue_func=_issue_single_asset_1000,
-                         send_amount=1)
+    app = prepare_assets(app, "group_1", issue_func=_issue_single_asset_1000, send_amount=1)
     return app
 
 
@@ -42,17 +45,17 @@ def test_create_spare_utxos(get_app):
     scheduler.pause()
 
     # check initial state
-    assert len(get_spare_utxos(app.config)) < app.config['SPARE_UTXO_THRESH']
+    assert len(get_spare_utxos(app.config)) < app.config["SPARE_UTXO_THRESH"]
 
     # let the scheduler create new UTXOs
     scheduler.resume()
     wait_sched_create_utxos(app)
 
     # check new spare UTXO state
-    assert len(get_spare_utxos(app.config)) == app.config['SPARE_UTXO_NUM']
+    assert len(get_spare_utxos(app.config)) == app.config["SPARE_UTXO_NUM"]
 
     # request enough witness assets to trigger UTXO creation
-    num = app.config['SPARE_UTXO_NUM'] - app.config['SPARE_UTXO_THRESH']
+    num = app.config["SPARE_UTXO_NUM"] - app.config["SPARE_UTXO_THRESH"]
     for _ in range(num):
         user = prepare_user_wallets(app, 1)[0]
         invoice = witness(app.config, user)
@@ -63,14 +66,14 @@ def test_create_spare_utxos(get_app):
     scheduler.pause()
 
     # check UTXO state
-    assert len(get_spare_utxos(app.config)) < app.config['SPARE_UTXO_THRESH']
+    assert len(get_spare_utxos(app.config)) < app.config["SPARE_UTXO_THRESH"]
 
     # let the scheduler create new UTXOs
     scheduler.resume()
     wait_sched_create_utxos(app)
 
     # check new spare UTXO state
-    assert len(get_spare_utxos(app.config)) == app.config['SPARE_UTXO_NUM']
+    assert len(get_spare_utxos(app.config)) == app.config["SPARE_UTXO_NUM"]
 
 
 def test_create_witness_utxos(get_app):
@@ -81,21 +84,21 @@ def test_create_witness_utxos(get_app):
     # check initial spare available
     spare_utxos = get_spare_utxos(app.config)
     available = get_spare_available(spare_utxos)
-    print('available:', available)
+    print("available:", available)
 
     scheduler.pause()
 
     # accumulate enough witness requests for the same asset (for batching)
-    num = round(available / app.config['UTXO_SIZE']) + 1
+    num = round(available / app.config["UTXO_SIZE"]) + 1
     for _ in range(num):
         user = prepare_user_wallets(app, 1)[0]
         invoice = witness(app.config, user)
         resp = client.post(
             "/receive/asset",
             json={
-                'wallet_id': get_sha256_hex(user['xpub']),
-                'invoice': invoice,
-                'asset_group': 'group_1'
+                "wallet_id": get_sha256_hex(user["xpub"]),
+                "invoice": invoice,
+                "asset_group": "group_1",
             },
             headers=USER_HEADERS,
         )
@@ -123,14 +126,14 @@ def test_single_asset_false(get_app):
     users = prepare_user_wallets(app, 2)
 
     # request 2 different assets
-    for (idx, user) in enumerate(users):
+    for idx, user in enumerate(users):
         invoice = witness(app.config, user)
         resp = client.post(
             "/receive/asset",
             json={
-                'wallet_id': get_sha256_hex(user['xpub']),
-                'invoice': invoice,
-                'asset_group': f'group_{idx+1}'
+                "wallet_id": get_sha256_hex(user["xpub"]),
+                "invoice": invoice,
+                "asset_group": f"group_{idx+1}",
             },
             headers=USER_HEADERS,
         )
