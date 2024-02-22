@@ -21,7 +21,6 @@ jobs:
       - name: Install dependencies
         run: poetry install --without production
 
-      - name: Run isort + yapf
+      - name: Run black
         run: |
-          poetry run isort faucet_rgb/ tests/
-          poetry run yapf -r -i faucet_rgb/ tests/
+          poetry run black faucet_rgb/ tests/

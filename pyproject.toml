@@ -14,15 +14,14 @@ python = '^3.9'
 rgb-lib = '0.2.0'
 
 [tool.poetry.group.dev.dependencies]
-isort = "^5.13.2"
 pylint = "^3.0.3"
 toml = "^0.10.2"
-yapf = "^0.40.2"
 pytest = "^8.0.0"
 pytest-cov = "^4.1.0"
 setuptools = "69.1.0"
 flake8 = "^7.0.0"
 vulture = "^2.11"
+black = "^24.2.0"
 
 [tool.poetry.group.production.dependencies]
 waitress = "^3.0.0"
@@ -30,17 +29,12 @@ waitress = "^3.0.0"
 [tool.poetry.group.scripts.dependencies]
 rich = "^13.7.0"
 
-[tool.isort]
-filter_files = true
-include_trailing_comma = false
-multi_line_output = 4
+[tool.black]
+line_length = 100
+target_version = ["py39", "py310", "py311", "py312"]
 
 [tool.vulture]
 min_confidence = 100
-
-[tool.yapf]
-based_on_style = 'pep8'
-split_penalty_import_names = 1000
 
 [build-system]
 requires = ['poetry-core>=1.0.0']

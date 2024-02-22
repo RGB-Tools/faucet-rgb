@@ -240,8 +240,7 @@ curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 
 To format and lint code use:
 ```sh
-poetry run isort faucet_rgb/ tests/
-poetry run yapf -r -i faucet_rgb/ tests/
+poetry run black faucet_rgb/ tests/
 poetry run flake8 faucet_rgb/ tests/
 poetry run pylint faucet_rgb/ tests/
 poetry run vulture faucet_rgb/ tests/
