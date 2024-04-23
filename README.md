@@ -1,5 +1,37 @@
 # RGB Faucet
 
+A [Flask] application exposing a set of HTTP APIs that allow the distribution
+of RGB assets to wallets requesting them. The RGB functionality is provided by
+[rgb-lib] via [rgb-lib-python].
+
+See [Endpoints] for a list of the available endpoints.
+
+An rgb-lib RGB wallet is used to handle bitcoins and RGB assets. The faucet
+needs to be initialized and configured before it can be used. Multiple RGB
+assets can be configured, organized in groups. Requests for assets specify a
+wallet ID and a blinded UTXO. An asset group can optionally be specified, if
+not a random one is selected.
+
+After gathering a set number of requests or after a set time has passed, the
+faucet sends a random asset from the selected group for each request, in a
+batch (single transaction).
+
+An alternate distribution mode can be configured (per-group), where requests
+are gathered during a request window and, once it closes, the faucet randomly
+selects requests to be fulfilled from the gathered ones. As an example, this
+allows randomly selecting some "winners" for an asset with limited supply among
+a multitude of requests.
+
+See [Initial setup example] for an example on how to initialize a new faucet.
+See [Configuration] for detailed instuctions on how to configure it. API calls
+are authenticated, see [Authentication] for details. It can be run in docker,
+see [Docker] for details..
+
+Requests are stored in a sqlite database.
+
+Scripts are available to ease faucet initialization, including the issuance of
+new assets.
+
 ## Requirements
 - Python 3.9+
 - Poetry 1.4+
@@ -426,5 +458,12 @@ Notes:
   option
 - code coverate HTML report is saved in the `htmlcov` directory
 
+[Flask]: https://flask.palletsprojects.com/en/3.0.x/
+[rgb-lib]: https://github.com/RGB-Tools/rgb-lib
+[rgb-lib-python]: https://github.com/RGB-Tools/rgb-lib-python
 [rgb-proxy-server]: https://github.com/RGB-Tools/rgb-proxy-server
+[Authentication]: #authentication
+[Configuration]: #configuration
+[Docker]: #docker
+[Endpoints]: #endpoints
 [Initial setup example]: #initial-setup-example

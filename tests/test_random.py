@@ -68,7 +68,7 @@ def _issue_multiple_assets_2(app):
     cfa_1 = wallet.issue_asset_cfa(
         online,
         name="test with multiple CFA assets 1",
-        description="CFA asset for testing 1",
+        details="CFA asset for testing 1",
         precision=0,
         amounts=[supply],
         file_path=None,
@@ -76,7 +76,7 @@ def _issue_multiple_assets_2(app):
     cfa_2 = wallet.issue_asset_cfa(
         online,
         name="test with multiple CFA assets 2",
-        description="CFA asset for testing 2",
+        details="CFA asset for testing 2",
         precision=0,
         amounts=[supply],
         file_path=None,

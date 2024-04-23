@@ -35,13 +35,13 @@ def init_wallet(electrum_url, wallet_data):
     try:
         wallet = rgb_lib.Wallet(
             rgb_lib.WalletData(
-                wallet_data["data_dir"],
-                bitcoin_network,
-                rgb_lib.DatabaseType.SQLITE,
-                1,
-                wallet_data["xpub"],
-                wallet_data["mnemonic"],
-                wallet_data["keychain"],
+                data_dir=wallet_data["data_dir"],
+                bitcoin_network=bitcoin_network,
+                database_type=rgb_lib.DatabaseType.SQLITE,
+                max_allocations_per_utxo=1,
+                pubkey=wallet_data["xpub"],
+                mnemonic=wallet_data["mnemonic"],
+                vanilla_keychain=wallet_data["keychain"],
             )
         )
     except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception

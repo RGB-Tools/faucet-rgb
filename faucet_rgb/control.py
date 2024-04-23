@@ -34,7 +34,7 @@ def delete_transfers():
         return jsonify({"error": "unauthorized"}), 401
 
     wallet = current_app.config["WALLET"]
-    res = wallet.delete_transfers(None, None, False)
+    res = wallet.delete_transfers(None, False)
     return jsonify({"result": res}), 200
 
 
@@ -47,7 +47,7 @@ def fail_transfers():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    res = wallet.fail_transfers(online, None, None, False)
+    res = wallet.fail_transfers(online, None, False)
     return jsonify({"result": res}), 200
 
 
@@ -120,7 +120,14 @@ def refresh(asset_id):
     wallet = current_app.config["WALLET"]
     try:
         res = wallet.refresh(online, asset_id, [])
-        return jsonify({"result": res}), 200
+        result = {}
+        for k, v in res.items():
+            updated_status = None if not v.updated_status else v.updated_status.name
+            result[k] = {
+                "updated_status": updated_status,
+                "failure": v.failure,
+            }
+        return jsonify({"result": result}), 200
     except rgb_lib.RgbLibError.AssetNotFound:
         return jsonify({"error": f"unknown asset ID: {asset_id}"}), 404
     except Exception as err:  # pylint: disable=broad-except

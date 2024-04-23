@@ -170,11 +170,11 @@ def _request_rgb_asset_core(wallet_id, invoice, asset_group, asset, logger):
         "amount": asset["amount"],
         "name": rgb_asset.name,
         "precision": rgb_asset.precision,
-        "description": None,
+        "details": None,
         "ticker": None,
     }
-    if hasattr(rgb_asset, "description"):
-        asset_data["description"] = rgb_asset.description
+    if hasattr(rgb_asset, "details"):
+        asset_data["details"] = rgb_asset.details
     if hasattr(rgb_asset, "ticker"):
         asset_data["ticker"] = rgb_asset.ticker
 

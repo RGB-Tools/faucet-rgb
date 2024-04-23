@@ -78,7 +78,7 @@ class Config:  # pylint: disable=too-few-public-methods
     # if true, send a single asset per batch
     # see send_next_batch() in file faucet_rgb/scheduler.py
     SINGLE_ASSET_SEND = True
-    # extended pubkey for the underlying Bitcoin wallet
+    # account-level extended pubkey for the underlying Bitcoin wallet
     XPUB = None
     # dictionary mapping new asset IDs to old ones for migration
     # for each group, either none or all assets have to be mapped for migration

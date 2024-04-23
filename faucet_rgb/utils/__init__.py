@@ -45,15 +45,15 @@ def get_asset_dict(assets):
         }
         if hasattr(asset, "ticker"):
             asset_dict[asset.asset_id]["ticker"] = asset.ticker
-        if hasattr(asset, "description"):
-            asset_dict[asset.asset_id]["description"] = asset.description
-        if hasattr(asset, "data_paths"):
-            for data_path in asset.data_paths:
-                path_list = asset_dict[asset.asset_id].setdefault("data_paths", [])
-                attachment_id = data_path.file_path.split("/")[-2]
+        if hasattr(asset, "details"):
+            asset_dict[asset.asset_id]["details"] = asset.details
+        if hasattr(asset, "media"):
+            if asset.media:
+                path_list = asset_dict[asset.asset_id].setdefault("media", None)
+                attachment_id = asset.media.file_path.split("/")[-2]
                 path_list.append(
                     {
-                        "mime-type": data_path.mime,
+                        "mime-type": asset.media.mime,
                         "attachment_id": attachment_id,
                     }
                 )
@@ -67,11 +67,18 @@ def get_recipient(invoice, amount, cfg):
     # detect if blinded UTXO or script (witness tx)
     blinded_utxo = is_blinded_utxo(recipient_id)
     # create Recipient
-    if blinded_utxo:
-        recipient = rgb_lib.Recipient(recipient_id, None, amount, invoice_data.transport_endpoints)
-    else:
-        script_data = rgb_lib.ScriptData(recipient_id, cfg["AMOUNT_SAT"], None)
-        recipient = rgb_lib.Recipient(None, script_data, amount, invoice_data.transport_endpoints)
+    witness_data = None
+    if not blinded_utxo:
+        witness_data = rgb_lib.WitnessData(
+            amount_sat=cfg["AMOUNT_SAT"],
+            blinding=None,
+        )
+    recipient = rgb_lib.Recipient(
+        recipient_id=recipient_id,
+        witness_data=witness_data,
+        amount=amount,
+        transport_endpoints=invoice_data.transport_endpoints,
+    )
     return recipient
 
 
@@ -89,7 +96,7 @@ def get_recipient_map_stats(recipient_map):
     stats["witnesses"] = 0
     for _, rec_list in recipient_map.items():
         stats["recipients"] += len(rec_list)
-        stats["witnesses"] += len([r for r in rec_list if r.script_data])
+        stats["witnesses"] += len([r for r in rec_list if r.witness_data])
     return stats
 
 
@@ -109,7 +116,9 @@ def is_blinded_utxo(recipient_id):
     """Return if the given recipient ID is a blinded UTXO or not."""
     blinded_utxo = True
     try:
-        rgb_lib.BlindedUtxo(recipient_id)
+        recipient_info = rgb_lib.RecipientInfo(recipient_id)
+        if recipient_info.recipient_type() != rgb_lib.RecipientType.BLIND:
+            blinded_utxo = False
     except rgb_lib.RgbLibError:  # pylint: disable=catching-non-exception
         blinded_utxo = False
     return blinded_utxo

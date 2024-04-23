@@ -113,7 +113,7 @@ def _get_user_wallet(data_dir):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
     wallet_data = {
-        "xpub": keys.xpub,
+        "xpub": keys.account_xpub,
         "mnemonic": keys.mnemonic,
         "data_dir": data_dir,
         "network": NETWORK,
@@ -157,7 +157,7 @@ def issue_single_asset_with_supply(app, supply):
     cfa = wallet.issue_asset_cfa(
         online,
         name="test with single CFA asset",
-        description="a CFA asset for testing",
+        details="a CFA asset for testing",
         precision=0,
         amounts=[supply],
         file_path=None,
@@ -309,7 +309,7 @@ def _issue_asset(app):
     cfa = wallet.issue_asset_cfa(
         online,
         name=f"test CFA asset ({_ASSET_COUNT})",
-        description="a CFA asset for testing",
+        details="a CFA asset for testing",
         precision=0,
         amounts=[ISSUE_AMOUNT, ISSUE_AMOUNT],
         file_path=None,
@@ -370,9 +370,9 @@ def _prepare_test_app(custom_app_prep):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
 
-    app.config["FINGERPRINT"] = keys.xpub_fingerprint
+    app.config["FINGERPRINT"] = keys.account_xpub_fingerprint
     app.config["MNEMONIC"] = keys.mnemonic
-    app.config["XPUB"] = keys.xpub
+    app.config["XPUB"] = keys.account_xpub
 
     # prepare utxos and assets
     app = _prepare_utxos(app)
@@ -473,7 +473,11 @@ def refresh_and_check_settled(client, config, asset_id):
     """Check that the transfer is settled."""
     resp = client.get(f"/control/refresh/{asset_id}", headers=OPERATOR_HEADERS)
     assert resp.status_code == 200
-    assert resp.json["result"] is True
+    changed = False
+    for _, v in resp.json["result"].items():
+        if v["updated_status"] is not None:
+            changed = True
+    assert changed is True
     asset_transfers = config["WALLET"].list_transfers(asset_id)
     transfer = [t for t in asset_transfers if t.kind == rgb_lib.TransferKind.SEND][0]
     assert transfer.status == rgb_lib.TransferStatus.SETTLED

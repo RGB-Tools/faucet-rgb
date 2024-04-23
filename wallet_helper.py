@@ -31,6 +31,9 @@ def entrypoint():
     parser.add_argument('--blind',
                         action='store_true',
                         help='generate and print a new blinded UTXO')
+    parser.add_argument('--refresh',
+                        action='store_true',
+                        help='refresh all pending transfers')
     parser.add_argument('--unspents',
                         action='store_true',
                         help='print wallet unspents')
@@ -50,8 +53,8 @@ def entrypoint():
         keys = rgb_lib.generate_keys(bitcoin_network)
         print(f'new {network} wallet keys:')
         print(' - mnemonic:', keys.mnemonic)
-        print(' - xpub:', keys.xpub)
-        sys.exit(0)  #
+        print(' - xpub:', keys.account_xpub)
+        sys.exit(0)
 
     # processing other argument
     wallet_data = {
@@ -63,6 +66,10 @@ def entrypoint():
     }
     online, wallet = utils.wallet.init_wallet(app.config['ELECTRUM_URL'],
                                               wallet_data)
+
+    if args.refresh:
+        print('refreshing...')
+        wallet.refresh(online, None, [])
 
     if args.address:
         print(f'new {network} wallet address: {wallet.get_address()}')

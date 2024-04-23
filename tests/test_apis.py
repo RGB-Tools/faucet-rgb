@@ -201,7 +201,12 @@ def test_control_refresh(get_app):
         headers=OPERATOR_HEADERS,
     )
     assert resp.status_code == 200
-    assert resp.json["result"] is False
+    assert resp.json["result"] == {
+        "3": {
+            "updated_status": None,
+            "failure": None,
+        }
+    }
     asset_transfers = app.config["WALLET"].list_transfers(asset_id)
     transfer = [t for t in asset_transfers if t.kind == rgb_lib.TransferKind.SEND][0]
     assert transfer.status == rgb_lib.TransferStatus.WAITING_CONFIRMATIONS
@@ -755,10 +760,10 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
     recipient_map = {
         asset_id: [
             rgb_lib.Recipient(
-                invoice_data.recipient_id,
-                None,
-                amount,
-                invoice_data.transport_endpoints,
+                recipient_id=invoice_data.recipient_id,
+                witness_data=None,
+                amount=amount,
+                transport_endpoints=invoice_data.transport_endpoints,
             ),
         ]
     }

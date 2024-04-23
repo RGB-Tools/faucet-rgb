@@ -32,9 +32,9 @@ def _issue_asset(wallet, online, args):
         asset = wallet.issue_asset_nia(online, args.ticker, args.name,
                                        args.precision, args.amounts)
     elif args.schema.lower() == 'cfa':
-        _confirm_summary(args, common + ['description', 'file_path'])
+        _confirm_summary(args, common + ['details', 'file_path'])
         asset = wallet.issue_asset_cfa(
-            online, args.name, args.description, args.precision, args.amounts,
+            online, args.name, args.details, args.precision, args.amounts,
             args.file_path if args.file_path else None)
     else:
         print(f'unsupported schema "{args.schema}"')
@@ -55,9 +55,9 @@ def entrypoint():
     parser.add_argument('--ticker',
                         nargs='?',
                         help="Uppercase ticker for NIA assets")
-    parser.add_argument('--description',
+    parser.add_argument('--details',
                         nargs='?',
-                        help="Description for CFA assets")
+                        help="Details for CFA assets")
     parser.add_argument('--file_path',
                         nargs='?',
                         help='path to media file for CFA assets')
@@ -68,7 +68,7 @@ def entrypoint():
     args = parser.parse_args()
 
     app = settings.get_app(__name__)
-    (data_dir, network) = (app.config['DATA_DIR'], app.config['NETWORK'])
+    data_dir = app.config['DATA_DIR']
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     wallet_data = wallet_data_from_config(app.config)

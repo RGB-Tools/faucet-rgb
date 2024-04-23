@@ -37,9 +37,9 @@ def print_assets_and_quit(assets, asset_id):
             " -",
             asset.asset_id,
             asset.name,
-            asset.description,
+            asset.details,
             asset.precision,
-            asset.data_paths,
+            asset.media,
             asset.balance,
         )
     print(f'Cannot proceed: configured asset with id "{asset_id}" not found')
