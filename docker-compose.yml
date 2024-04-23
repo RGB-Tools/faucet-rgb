@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   faucet:
-    image: faucet-rgb
+    image: ghcr.io/rgb-tools/faucet-rgb:latest
     build: .
     environment:
       FAUCET_SETTINGS: /home/faucet/config.py
