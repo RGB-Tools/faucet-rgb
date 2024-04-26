@@ -23,9 +23,9 @@ allows randomly selecting some "winners" for an asset with limited supply among
 a multitude of requests.
 
 See [Initial setup example] for an example on how to initialize a new faucet.
-See [Configuration] for detailed instuctions on how to configure it. API calls
+See [Configuration] for detailed instructions on how to configure it. API calls
 are authenticated, see [Authentication] for details. It can be run in docker,
-see [Docker] for details..
+see [Docker] for details.
 
 Requests are stored in a sqlite database.
 
@@ -272,10 +272,10 @@ curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 
 To format and lint code use:
 ```sh
-poetry run black faucet_rgb/ tests/
-poetry run flake8 faucet_rgb/ tests/
-poetry run pylint faucet_rgb/ tests/
-poetry run vulture faucet_rgb/ tests/
+poetry run black faucet_rgb/ tests/ issue_asset.py wallet_helper.py
+poetry run flake8 faucet_rgb/ tests/ issue_asset.py wallet_helper.py
+poetry run pylint faucet_rgb/ tests/ issue_asset.py wallet_helper.py
+poetry run vulture faucet_rgb/ tests/ issue_asset.py wallet_helper.py
 ```
 
 ### Database migration
