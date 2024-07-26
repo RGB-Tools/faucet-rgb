@@ -233,8 +233,8 @@ def test_control_requests(get_app):  # pylint: disable=too-many-statements
     assert resp.status_code == 200
     assert not resp.json["requests"]
 
-    users = prepare_user_wallets(app, 2)
     scheduler.pause()
+    users = prepare_user_wallets(app, 2)
     add_fake_request(
         app,
         users[0],
