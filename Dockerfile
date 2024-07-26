@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bullseye
+FROM python:3.12-slim-bookworm
 
 RUN apt-get -y update \
     && apt-get -y install --no-install-recommends curl tini \
@@ -13,9 +13,9 @@ USER $USER
 ENV APP_DIR="/home/$USER/faucet"
 WORKDIR $APP_DIR
 
+# project setup
 RUN python3 -m pip install --no-cache-dir poetry \
     && echo "export PATH=$PATH:$HOME/.local/bin" >> $HOME/.bashrc
-
 COPY --chown=$USER:$USER poetry.lock pyproject.toml ./
 
 # install project dependencies
@@ -27,7 +27,6 @@ COPY --chown=$USER:$USER migrations ./migrations
 COPY --chown=$USER:$USER issue_asset.py wallet_helper.py LICENSE README.md ./
 
 EXPOSE 8080/tcp
-
 HEALTHCHECK CMD curl localhost:8080 || exit 1
 
 CMD ["tini", "--", "/home/faucet/.local/bin/poetry", "run", "waitress-serve", "--host=0.0.0.0", "--call", "faucet_rgb:create_app"]
