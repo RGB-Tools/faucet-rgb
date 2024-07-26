@@ -13,12 +13,12 @@ services:
       - electrs
       - proxy
   bitcoind:
-    image: registry.gitlab.com/hashbeam/docker/bitcoind:25.0
+    image: registry.gitlab.com/hashbeam/docker/bitcoind:27.1
     command: "-fallbackfee=0.0002"
     volumes:
       - ./service_data/bitcoin:/srv/app/.bitcoin
   electrs:
-    image: registry.gitlab.com/hashbeam/docker/electrs:0.9.14
+    image: registry.gitlab.com/hashbeam/docker/electrs:0.10.0
     volumes:
       - ./service_data/electrs:/srv/app/db
     ports:
