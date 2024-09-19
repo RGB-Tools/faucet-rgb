@@ -64,7 +64,7 @@ def entrypoint():  # noqa: C901 # pylint: disable=too-many-statements
 
     if args.refresh:
         print("refreshing...")
-        wallet.refresh(online, None, [])
+        wallet.refresh(online, None, [], False)
 
     if args.address:
         print(f"new {network} wallet address: {wallet.get_address()}")
@@ -78,7 +78,7 @@ def entrypoint():  # noqa: C901 # pylint: disable=too-many-statements
         # pylint: disable=duplicate-code
         try:
             count = wallet.create_utxos(
-                online, True, 1, app.config["UTXO_SIZE"], app.config["FEE_RATE"]
+                online, True, 1, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False
             )
             if count > 0:
                 print(f"{count} new UTXOs created")

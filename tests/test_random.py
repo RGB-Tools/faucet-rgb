@@ -64,7 +64,7 @@ def _issue_multiple_assets_2(app):
     supply = 2
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False)
     cfa_1 = wallet.issue_asset_cfa(
         online,
         name="test with multiple CFA assets 1",
@@ -171,7 +171,7 @@ def test_random_single_asset(get_app):
         "unmet": 0,
     }
     for user in users:
-        user["wallet"].refresh(user["online"], None, [])
+        user["wallet"].refresh(user["online"], None, [], False)
         assets = user["wallet"].list_assets([])
         if assets.cfa:
             assert len(assets.cfa) == 1  # only one asset sent to each user
@@ -251,7 +251,7 @@ def test_random_multiple_assets(get_app):  # pylint: disable=too-many-locals
         "unmet": 0,
     }
     for user in users:
-        user["wallet"].refresh(user["online"], None, [])
+        user["wallet"].refresh(user["online"], None, [], False)
         assets = user["wallet"].list_assets([])
         if assets.cfa:
             result["served"] += 1

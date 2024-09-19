@@ -83,6 +83,7 @@ def _try_send(reqs, cfg, recipient_map, stats):
                 True,
                 cfg["FEE_RATE"],
                 cfg["MIN_CONFIRMATIONS"],
+                False,
             )
             logger.info(
                 "batch donation (%s assets, %s recipients total, %s witnesses) sent with TXID: %s",

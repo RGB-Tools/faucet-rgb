@@ -48,13 +48,13 @@ def init_wallet(electrum_url, wallet_data):
         print("rgb_lib error:", err)
         raise RuntimeError("Faucet unavailable") from err
     online = wallet.go_online(False, electrum_url)
-    wallet.refresh(online, None, [])
+    wallet.refresh(online, None, [], False)
     return online, wallet
 
 
 def get_unspent_list(wallet, online):
     """Return a dict of the available unspents."""
-    unspents = wallet.list_unspents(online, False)
+    unspents = wallet.list_unspents(online, False, False)
     unspent_list = []
     for unspent in unspents:
         rgb_allocations_list = []

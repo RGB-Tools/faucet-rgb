@@ -84,7 +84,7 @@ def get_recipient(invoice, amount, cfg):
 
 def get_spare_utxos(config):
     """Return the list of spare colorable UTXOs."""
-    unspents = config["WALLET"].list_unspents(config["ONLINE"], False)
+    unspents = config["WALLET"].list_unspents(config["ONLINE"], False, False)
     return [u for u in unspents if u.utxo.colorable and not u.rgb_allocations]
 
 
@@ -133,6 +133,6 @@ def create_witness_utxos(config, stats, spare_utxos):
     if available < needed:
         utxo_num = round((needed - available) / config["UTXO_SIZE"]) + 1
         created = config["WALLET"].create_utxos(
-            config["ONLINE"], False, utxo_num, config["UTXO_SIZE"], config["FEE_RATE"]
+            config["ONLINE"], False, utxo_num, config["UTXO_SIZE"], config["FEE_RATE"], False
         )
     return created

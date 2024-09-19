@@ -563,7 +563,7 @@ def test_receive_asset_witness(get_app):
 
     # prepare 2 colorable UTXOs: 1 for BTC input (witness) + 1 for RGB change
     app.config["WALLET"].create_utxos(
-        app.config["ONLINE"], True, 2, app.config["UTXO_SIZE"], app.config["FEE_RATE"]
+        app.config["ONLINE"], True, 2, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False
     )
 
     # request using a witness tx invoice
@@ -576,12 +576,12 @@ def test_receive_asset_witness(get_app):
     assert request.recipient_id == rgb_lib.Invoice(invoice).invoice_data().recipient_id
     wait_sched_process_pending(app)
     time.sleep(5)  # give the scheduler time to complete the send
-    user["wallet"].refresh(user["online"], None, [])
+    user["wallet"].refresh(user["online"], None, [], False)
     generate(1)
-    user["wallet"].refresh(user["online"], None, [])
+    user["wallet"].refresh(user["online"], None, [], False)
     assets = user["wallet"].list_assets([])
     assert any([assets.nia, assets.cfa])
-    unspents = user["wallet"].list_unspents(user["online"], False)
+    unspents = user["wallet"].list_unspents(user["online"], False, False)
     assert len(unspents) == 2  # 1 funding + 1 received (witness)
 
 
@@ -705,17 +705,17 @@ def test_reserve_topupbtc(get_app):
 
     # send some BTC + check the updated balance
     amount = 1000
-    balance_1 = wallet.get_btc_balance(app.config["ONLINE"]).vanilla
-    txid = user["wallet"].send_btc(user["online"], address, amount, app.config["FEE_RATE"])
+    balance_1 = wallet.get_btc_balance(app.config["ONLINE"], False).vanilla
+    txid = user["wallet"].send_btc(user["online"], address, amount, app.config["FEE_RATE"], False)
     assert txid
-    balance_2 = wallet.get_btc_balance(app.config["ONLINE"]).vanilla
+    balance_2 = wallet.get_btc_balance(app.config["ONLINE"], False).vanilla
     assert balance_2.settled == balance_1.settled
     assert balance_2.future == balance_1.future + amount
     assert balance_2.spendable == balance_1.spendable + amount
 
     # check settled balance updates after the tx gets confirmed
     generate(1)
-    balance_3 = wallet.get_btc_balance(app.config["ONLINE"]).vanilla
+    balance_3 = wallet.get_btc_balance(app.config["ONLINE"], False).vanilla
     assert balance_3.settled == balance_1.settled + amount
 
 
@@ -768,7 +768,7 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
         ]
     }
     created = user["wallet"].create_utxos(
-        user["online"], True, 1, app.config["UTXO_SIZE"], app.config["FEE_RATE"]
+        user["online"], True, 1, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False
     )
     assert created == 1
     txid = user["wallet"].send(
@@ -777,6 +777,7 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
         True,
         app.config["FEE_RATE"],
         app.config["MIN_CONFIRMATIONS"],
+        False,
     )
     assert txid
     # check balance updates once the transfer is WAITING_CONFIRMATIONS

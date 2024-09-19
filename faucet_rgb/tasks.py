@@ -32,7 +32,7 @@ def batch_donation():
 
         # refresh pending transfers
         try:
-            cfg["WALLET"].refresh(cfg["ONLINE"], None, [])
+            cfg["WALLET"].refresh(cfg["ONLINE"], None, [], False)
         except Exception as err:  # pylint: disable=broad-exception-caught
             logger.error("error refreshing transfers: %s", repr(err))
 
@@ -50,6 +50,7 @@ def batch_donation():
                     cfg["SPARE_UTXO_NUM"],
                     cfg["UTXO_SIZE"],
                     cfg["FEE_RATE"],
+                    False,
                 )
                 logger.info("%s UTXOs created", created)
 

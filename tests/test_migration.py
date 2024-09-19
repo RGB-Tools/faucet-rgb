@@ -89,6 +89,7 @@ def _assure_no_pending_request(app):
         None,
         app.config["UTXO_SIZE"],
         app.config["FEE_RATE"],
+        False,
     )
     while True:
         retry = retry + 1

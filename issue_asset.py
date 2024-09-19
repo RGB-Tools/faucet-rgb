@@ -76,7 +76,12 @@ def entrypoint():
     # pylint: disable=duplicate-code
     try:
         count = wallet.create_utxos(
-            online, True, len(args.amounts) + 2, app.config["UTXO_SIZE"], app.config["FEE_RATE"]
+            online,
+            True,
+            len(args.amounts) + 2,
+            app.config["UTXO_SIZE"],
+            app.config["FEE_RATE"],
+            False,
         )
         print(f"{count} new UTXOs created")
     except rgb_lib.RgbLibError.AllocationsAlreadyAvailable:

@@ -20,7 +20,7 @@ def assets():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.refresh(online, None, [])
+    wallet.refresh(online, None, [], False)
     asset_list = wallet.list_assets([])
     asset_dict = utils.get_asset_dict(asset_list.nia + asset_list.cfa)
     return jsonify({"assets": asset_dict})
@@ -47,7 +47,7 @@ def fail_transfers():
 
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    res = wallet.fail_transfers(online, None, False)
+    res = wallet.fail_transfers(online, None, False, False)
     return jsonify({"result": res}), 200
 
 
@@ -79,7 +79,7 @@ def list_transfers():
     # refresh and list transfers in matching status(es)
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
-    wallet.refresh(online, None, [])
+    wallet.refresh(online, None, [], False)
     asset_list = wallet.list_assets([])
     asset_ids = [a.asset_id for a in asset_list.nia + asset_list.cfa]
     transfers = []
@@ -119,7 +119,7 @@ def refresh(asset_id):
     online = current_app.config["ONLINE"]
     wallet = current_app.config["WALLET"]
     try:
-        res = wallet.refresh(online, asset_id, [])
+        res = wallet.refresh(online, asset_id, [], False)
         result = {}
         for k, v in res.items():
             updated_status = None if not v.updated_status else v.updated_status.name

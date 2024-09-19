@@ -153,7 +153,7 @@ def issue_single_asset_with_supply(app, supply):
     """
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False)
     cfa = wallet.issue_asset_cfa(
         online,
         name="test with single CFA asset",
@@ -187,7 +187,7 @@ def check_requests_left(app, xpub, group_to_requests_left):
 def create_and_blind(config, user):
     """Create up to 1 UTXO and return an invoice with a blinded UTXO."""
     wallet = user["wallet"]
-    _ = wallet.create_utxos(user["online"], True, 1, config["UTXO_SIZE"], config["FEE_RATE"])
+    _ = wallet.create_utxos(user["online"], True, 1, config["UTXO_SIZE"], config["FEE_RATE"], False)
     receive_data = wallet.blind_receive(
         None, None, None, config["TRANSPORT_ENDPOINTS"], config["MIN_CONFIRMATIONS"]
     )
@@ -274,7 +274,7 @@ def check_receive_asset(
 def _prepare_utxos(app):
     wallet_data = wallet_data_from_config(app.config)
     online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"], wallet_data)
-    wallet.refresh(online, None, [])
+    wallet.refresh(online, None, [], False)
     addr = wallet.get_address()
     fund_address(addr)
     generate(1)
@@ -298,7 +298,7 @@ def _issue_asset(app):
     _ASSET_COUNT += 1
     wallet = app.config["WALLET"]
     online = app.config["ONLINE"]
-    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"])
+    wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False)
     nia = wallet.issue_asset_nia(
         online,
         ticker=f"TFT{_ASSET_COUNT}",
@@ -440,7 +440,7 @@ def wait_refresh(wallet, online, asset=None):
     """Wait for refresh to return true (a transfer has changed)."""
     print("waiting for refresh to return True...")
     deadline = time.time() + 30
-    while not wallet.refresh(online, asset, []):
+    while not wallet.refresh(online, asset, [], False):
         if time.time() > deadline:
             raise RuntimeError("refresh not returning True")
         time.sleep(1)
@@ -454,7 +454,7 @@ def wait_xfer_status(wallet, online, asset_id, xfer_id, expected_status):
     deadline = time.time() + 30
     while True:
         try:
-            wallet.refresh(online, None, [])
+            wallet.refresh(online, None, [], False)
             xfers = wallet.list_transfers(asset_id)
         except rgb_lib.RgbLibError.AssetNotFound:
             print("asset not found")
@@ -522,13 +522,13 @@ def wait_sched_create_utxos(app):
     """Wait for scheduler to create new UTXOs."""
     assert scheduler.state == STATE_RUNNING
     print("waiting for scheduler to create UTXOs...")
-    unspents = app.config["WALLET"].list_unspents(app.config["ONLINE"], False)
+    unspents = app.config["WALLET"].list_unspents(app.config["ONLINE"], False, False)
     starting_unspents = len(unspents)
     with app.app_context():
         deadline = time.time() + 30
         while True:
             time.sleep(2)
-            unspents = app.config["WALLET"].list_unspents(app.config["ONLINE"], False)
+            unspents = app.config["WALLET"].list_unspents(app.config["ONLINE"], False, False)
             if len(unspents) > starting_unspents:
                 break
             if time.time() > deadline:
