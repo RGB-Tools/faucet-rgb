@@ -15,7 +15,6 @@
 **/*.jfm
 **/bin
 **/charts
-**/docker-compose*
 **/compose*
 **/Dockerfile*
 **/node_modules

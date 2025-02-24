@@ -22,7 +22,7 @@ BITCOIN_ARG = [
     "docker",
     "compose",
     "-f",
-    "docker/docker-compose.yml",
+    "docker/compose.yaml",
     "exec",
     "-T",
     "-u",

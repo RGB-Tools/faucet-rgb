@@ -314,7 +314,7 @@ curl -i -H 'x-api-key: defaultapikey' localhost:5000/receive/config/<wallet_id>
 ## Docker
 
 A `Dockerfile` is available to build a docker image that runs the faucet. The
-`docker-compose.yml` file allows to run a faucet along with a complete regtest
+`compose.yaml` file allows to run a faucet along with a complete regtest
 environment.
 
 The docker compose file uses the `service_data` directory for service data and

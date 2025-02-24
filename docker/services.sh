@@ -20,7 +20,7 @@ COMPOSE="docker compose"
 if ! $COMPOSE >/dev/null; then
     _die "could not call docker compose (hint: install docker compose plugin)"
 fi
-COMPOSE="$COMPOSE -f docker-compose.yml"
+COMPOSE="$COMPOSE -f compose.yaml"
 BCLI="$COMPOSE exec -T -u blits bitcoind bitcoin-cli -regtest"
 INITIAL_BLOCKS=111
 DATA_DIR="./tmp"
@@ -52,7 +52,7 @@ start() {
 
     rm -rf $DATA_DIR
     mkdir -p $DATA_DIR
-    # see docker-compose.yml for the exposed ports
+    # see compose.yaml for the exposed ports
     EXPOSED_PORTS=(3000 50001)
     for port in "${EXPOSED_PORTS[@]}"; do
         if [ -n "$(ss -HOlnt "sport = :$port")" ];then
