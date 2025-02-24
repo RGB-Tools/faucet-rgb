@@ -1,17 +1,37 @@
-[tool.poetry]
+[project]
 name = "faucet-rgb"
 version = "0.1.0"
 description = "RGB faucet"
-authors = ["Zoe Faltibà <zoefaltiba@gmail.com>", "Nicola Busanello <nicola.busanello@gmail.com>"]
-license = "MIT"
+authors = [
+  { name = "Zoe Faltibà", email = "zoefaltiba@gmail.com" },
+  { name = "Nicola Busanello", email = "nicola.busanello@gmail.com" },
+]
+keywords = ["rgb", "bitcoin"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Other/Nonlisted Topic",
+]
+requires-python = ">=3.9.0"
+dependencies = [
+    "Flask~=3.0.2",
+    "Flask-APScheduler~=1.13.1",
+    "flask-migrate~=4.0.5",
+    "flask-sqlalchemy~=3.1.1",
+    "rgb-lib=0.3.0a11",
+]
 
-[tool.poetry.dependencies]
-Flask = "^3.0.2"
-Flask-APScheduler = "^1.13.1"
-flask-migrate = "^4.0.5"
-flask-sqlalchemy = "^3.1.1"
-python = "^3.9"
-rgb-lib = "0.3.0a11"
+[build-system]
+requires = ["poetry-core~=2.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pylint = "^3.0.3"
@@ -29,17 +49,13 @@ waitress = "^3.0.0"
 [tool.poetry.group.scripts.dependencies]
 rich = "^13.7.0"
 
-[tool.black]
-line_length = 100
-target_version = ["py39", "py310", "py311", "py312"]
-
-[tool.vulture]
-min_confidence = 100
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
 [tool.poetry.scripts]
 issue-asset = "issue_asset:entrypoint"
 wallet-helper = "wallet_helper:entrypoint"
+
+[tool.black]
+line_length = 100
+target_version = ["py39", "py310", "py311", "py312", "py313"]
+
+[tool.vulture]
+min_confidence = 100
