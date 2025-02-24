@@ -20,13 +20,13 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Other/Nonlisted Topic",
 ]
-requires-python = ">=3.9.0"
+requires-python = "~=3.9"
 dependencies = [
     "Flask~=3.0.2",
     "Flask-APScheduler~=1.13.1",
     "flask-migrate~=4.0.5",
     "flask-sqlalchemy~=3.1.1",
-    "rgb-lib=0.3.0a11",
+    "rgb-lib==0.3.0a11",
 ]
 
 [build-system]
@@ -34,20 +34,20 @@ requires = ["poetry-core~=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
-pylint = "^3.0.3"
-toml = "^0.10.2"
-pytest = "^8.0.0"
-pytest-cov = "^4.1.0"
-setuptools = "70.3.0"
-flake8 = "^7.0.0"
-vulture = "^2.11"
-black = "^24.2.0"
+black = "^25.0"
+flake8 = "^7.0"
+pylint = "^3.0"
+pytest = "^8.0"
+pytest-cov = "^6.0"
+setuptools = "75.0"
+toml = "^0.10.0"
+vulture = "^2.0"
 
 [tool.poetry.group.production.dependencies]
-waitress = "^3.0.0"
+waitress = "^3.0"
 
 [tool.poetry.group.scripts.dependencies]
-rich = "^13.7.0"
+rich = "^13.0"
 
 [tool.poetry.scripts]
 issue-asset = "issue_asset:entrypoint"

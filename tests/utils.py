@@ -202,7 +202,8 @@ def witness(config, user):
     return receive_data.invoice
 
 
-def add_fake_request(  # pylint: disable=too-many-arguments
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+def add_fake_request(
     app, user, asset_group, status, amount=None, asset_id=None, hash_wallet_id=False
 ):
     """Add a request to DB to simulate a previous request."""

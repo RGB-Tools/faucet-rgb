@@ -31,7 +31,7 @@ class Request(db.Model):  # pylint: disable=too-few-public-methods,too-many-inst
     asset_id = db.Column(db.String(256), nullable=True)
     amount = db.Column(db.Integer, nullable=True)
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(self, wallet_id, recipient_id, invoice, asset_group, asset_id, amount):
         # pylint: disable=too-many-arguments
         self.timestamp = get_current_timestamp()
