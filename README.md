@@ -320,7 +320,7 @@ environment.
 The docker compose file uses the `service_data` directory for service data and
 `faucet_data` as the data directory for the faucet. It also expects the file
 `config.py` (faucet configuration file) to exist. The `faucet_data` dir needs
-to be owned by user and group `1000. All paths are relative to the project
+to be owned by user and group `1000`. All paths are relative to the project
 root. Note that if the faucet is started via docker compose while `config.py`
 doesn't exist, docker will create a directory with the same name instead, which
 will need to be replaced with the correct file for the faucet to work.
