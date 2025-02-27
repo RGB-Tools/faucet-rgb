@@ -871,14 +871,18 @@ files = [
 
 [[package]]
 name = "rgb-lib"
-version = "0.3.0a11"
+version = "0.3.0a12"
 description = "RGB Lib Python language bindings."
 optional = false
-python-versions = "<4.0.0,>=3.9.0"
+python-versions = ">=3.9.0"
 groups = ["main"]
 files = [
-    {file = "rgb_lib-0.3.0a11-py3-none-any.whl", hash = "sha256:138610450dc3ea0d0bed53bff8df44f33b0def173e821148be69f33e8c07e4b3"},
-    {file = "rgb_lib-0.3.0a11.tar.gz", hash = "sha256:4061460a99ac1e4d35e1726d3a31f93db06e26ecc8b92d92c48170aabce974a7"},
+    {file = "rgb_lib-0.3.0a12-py3-none-macosx_12_0_arm64.whl", hash = "sha256:f4e5a3b2d1f4cb04f2466834e7d8985599df3982299c915ab10c79c9c790cb75"},
+    {file = "rgb_lib-0.3.0a12-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:aba59d56bcf28af3da79d9674775c1bd2149841f97b4264b60e71939fa305ae8"},
+    {file = "rgb_lib-0.3.0a12-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:3a24355bf16edd893445084126b7523b42b0a71322deaec53bb498d7192973d6"},
+    {file = "rgb_lib-0.3.0a12-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:40463f14af98327ee02a27feb78b66d46fc5bdd1db5063ff6c9fbf3d790e65f2"},
+    {file = "rgb_lib-0.3.0a12-py3-none-win_amd64.whl", hash = "sha256:96dc6942e61a94427e0dd0ff6101f2ea8bc965280e6ff11fcecc7d93207ca28f"},
+    {file = "rgb_lib-0.3.0a12.tar.gz", hash = "sha256:ad9bd876f276f9d2e365c19fb16e09ddc1c3aa4d115fba2fad9817c984d120ee"},
 ]
 
 [[package]]
@@ -1184,4 +1188,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "~=3.9"
-content-hash = "d9487ba914215b5c12dd8061258b48ce1af55dfa49ff86054419be8b737c8a95"
+content-hash = "0b89b5eccb9a64f694030c79f9c4eac7fa322dd404d41fc30175638fbd48cf42"
