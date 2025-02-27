@@ -49,7 +49,7 @@ class Config:  # pylint: disable=too-few-public-methods
     # URL of the electrum server
     ELECTRUM_URL = "ssl://electrum.iriswallet.com:50013"
     # fee rate for transactions
-    FEE_RATE = 1.5
+    FEE_RATE = 2
     # fingerprint of the underlying rgb-lib wallet
     FINGERPRINT = None
     # faucet's main log file name
