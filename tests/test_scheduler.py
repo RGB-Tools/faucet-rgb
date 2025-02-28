@@ -15,7 +15,7 @@ from tests.utils import (
     receive_asset,
     wait_sched_create_utxos,
     wait_sched_process_pending,
-    witness,
+    create_and_witness,
 )
 
 
@@ -58,7 +58,7 @@ def test_create_spare_utxos(get_app):
     num = app.config["SPARE_UTXO_NUM"] - app.config["SPARE_UTXO_THRESH"]
     for _ in range(num):
         user = prepare_user_wallets(app, 1)[0]
-        invoice = witness(app.config, user)
+        invoice = create_and_witness(app.config, user)
         resp = receive_asset(client, user["xpub"], invoice)
         assert resp.status_code == 200
         wait_sched_process_pending(app)  # avoid batching
@@ -92,7 +92,7 @@ def test_create_witness_utxos(get_app):
     num = round(available / app.config["UTXO_SIZE"]) + 1
     for _ in range(num):
         user = prepare_user_wallets(app, 1)[0]
-        invoice = witness(app.config, user)
+        invoice = create_and_witness(app.config, user)
         resp = client.post(
             "/receive/asset",
             json={
@@ -127,7 +127,7 @@ def test_single_asset_false(get_app):
 
     # request 2 different assets
     for idx, user in enumerate(users):
-        invoice = witness(app.config, user)
+        invoice = create_and_witness(app.config, user)
         resp = client.post(
             "/receive/asset",
             json={

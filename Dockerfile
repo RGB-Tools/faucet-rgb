@@ -17,14 +17,13 @@ WORKDIR $APP_DIR
 RUN python3 -m pip install --no-cache-dir poetry \
     && echo "export PATH=$PATH:$HOME/.local/bin" >> $HOME/.bashrc
 COPY --chown=$USER:$USER poetry.lock pyproject.toml ./
+COPY --chown=$USER:$USER faucet_rgb ./faucet_rgb
 
-# install project dependencies
+# install project
 RUN $HOME/.local/bin/poetry install --without=dev
 
-# copy project code
-COPY --chown=$USER:$USER faucet_rgb ./faucet_rgb
-COPY --chown=$USER:$USER migrations ./migrations
-COPY --chown=$USER:$USER issue_asset.py wallet_helper.py LICENSE README.md ./
+# copy remaining project code
+COPY --chown=$USER:$USER . .
 
 EXPOSE 8080/tcp
 HEALTHCHECK CMD curl localhost:8080 || exit 1

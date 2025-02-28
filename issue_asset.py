@@ -7,7 +7,6 @@ import sys
 import rgb_lib
 
 from faucet_rgb import settings, utils
-from faucet_rgb.utils.wallet import wallet_data_from_config
 
 
 def _confirm_summary(args, to_print):
@@ -69,7 +68,7 @@ def entrypoint():
     data_dir = app.config["DATA_DIR"]
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    wallet_data = wallet_data_from_config(app.config)
+    wallet_data = utils.wallet.wallet_data_from_config(app.config)
     online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"], wallet_data)
 
     # asset issuance

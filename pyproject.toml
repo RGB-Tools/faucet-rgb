@@ -29,6 +29,10 @@ dependencies = [
     "rgb-lib==0.3.0a12",
 ]
 
+[project.scripts]
+issue-asset = "issue_asset:entrypoint"
+wallet-helper = "wallet_helper:entrypoint"
+
 [build-system]
 requires = ["poetry-core~=2.0.0"]
 build-backend = "poetry.core.masonry.api"
@@ -48,10 +52,6 @@ waitress = "^3.0"
 
 [tool.poetry.group.scripts.dependencies]
 rich = "^13.0"
-
-[tool.poetry.scripts]
-issue-asset = "issue_asset:entrypoint"
-wallet-helper = "wallet_helper:entrypoint"
 
 [tool.black]
 line_length = 100

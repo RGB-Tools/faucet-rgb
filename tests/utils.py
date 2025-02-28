@@ -194,7 +194,7 @@ def create_and_blind(config, user):
     return receive_data.invoice
 
 
-def witness(config, user):
+def create_and_witness(config, user):
     """Create up to 1 UTXO and return an invoice for a witness tx."""
     receive_data = user["wallet"].witness_receive(
         None, None, None, config["TRANSPORT_ENDPOINTS"], config["MIN_CONFIRMATIONS"]

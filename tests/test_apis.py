@@ -29,7 +29,7 @@ from tests.utils import (
     wait_refresh,
     wait_sched_process_pending,
     wait_xfer_status,
-    witness,
+    create_and_witness,
 )
 
 
@@ -567,7 +567,7 @@ def test_receive_asset_witness(get_app):
     )
 
     # request using a witness tx invoice
-    invoice = witness(app.config, user)
+    invoice = create_and_witness(app.config, user)
     resp = receive_asset(client, user["xpub"], invoice)
     assert resp.status_code == 200
     with app.app_context():
@@ -593,7 +593,7 @@ def test_receive_asset_witness_disallowed(get_app):
     user = prepare_user_wallets(app, 1)[0]
 
     # request using a witness tx invoice
-    invoice = witness(app.config, user)
+    invoice = create_and_witness(app.config, user)
     resp = receive_asset(client, user["xpub"], invoice)
     assert resp.status_code == 403
     assert "not supported on mainnet" in resp.json["error"]
@@ -607,7 +607,7 @@ def test_receive_asset_witness_allowed(get_app):
     user = prepare_user_wallets(app, 1)[0]
 
     # request using a witness tx invoice
-    invoice = witness(app.config, user)
+    invoice = create_and_witness(app.config, user)
     resp = receive_asset(client, user["xpub"], invoice)
     assert resp.status_code == 200
 
