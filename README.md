@@ -278,6 +278,11 @@ poetry run pylint faucet_rgb/ tests/ issue_asset.py wallet_helper.py
 poetry run vulture faucet_rgb/ tests/ issue_asset.py wallet_helper.py
 ```
 
+To audit dependencies for known vulnerabilities use:
+```sh
+poetry run pip-audit
+```
+
 ### Database migration
 Migrations are handles via `flask-migrate`.
 
