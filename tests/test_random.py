@@ -66,7 +66,6 @@ def _issue_multiple_assets_2(app):
     online = app.config["ONLINE"]
     wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False)
     cfa_1 = wallet.issue_asset_cfa(
-        online,
         name="test with multiple CFA assets 1",
         details="CFA asset for testing 1",
         precision=0,
@@ -74,7 +73,6 @@ def _issue_multiple_assets_2(app):
         file_path=None,
     )
     cfa_2 = wallet.issue_asset_cfa(
-        online,
         name="test with multiple CFA assets 2",
         details="CFA asset for testing 2",
         precision=0,

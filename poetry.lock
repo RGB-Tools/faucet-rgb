@@ -1328,18 +1328,18 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "rgb-lib"
-version = "0.3.0a12"
+version = "0.3.0b1"
 description = "RGB Lib Python language bindings."
 optional = false
 python-versions = ">=3.9.0"
 groups = ["main"]
 files = [
-    {file = "rgb_lib-0.3.0a12-py3-none-macosx_12_0_arm64.whl", hash = "sha256:f4e5a3b2d1f4cb04f2466834e7d8985599df3982299c915ab10c79c9c790cb75"},
-    {file = "rgb_lib-0.3.0a12-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:aba59d56bcf28af3da79d9674775c1bd2149841f97b4264b60e71939fa305ae8"},
-    {file = "rgb_lib-0.3.0a12-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:3a24355bf16edd893445084126b7523b42b0a71322deaec53bb498d7192973d6"},
-    {file = "rgb_lib-0.3.0a12-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:40463f14af98327ee02a27feb78b66d46fc5bdd1db5063ff6c9fbf3d790e65f2"},
-    {file = "rgb_lib-0.3.0a12-py3-none-win_amd64.whl", hash = "sha256:96dc6942e61a94427e0dd0ff6101f2ea8bc965280e6ff11fcecc7d93207ca28f"},
-    {file = "rgb_lib-0.3.0a12.tar.gz", hash = "sha256:ad9bd876f276f9d2e365c19fb16e09ddc1c3aa4d115fba2fad9817c984d120ee"},
+    {file = "rgb_lib-0.3.0b1-py3-none-macosx_12_0_arm64.whl", hash = "sha256:624cf8241e55284e67496ef5fd1324ce1d3df6ba9ee396f5510f2f2738ecc59b"},
+    {file = "rgb_lib-0.3.0b1-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:6b49c48707af402808d1a2474b81035945dd56c42dcdd2dc216bd588b532b630"},
+    {file = "rgb_lib-0.3.0b1-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:550611b9328696696b4178d74a2d8b4133ebb99176fcb10462c561e260fa89ab"},
+    {file = "rgb_lib-0.3.0b1-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:6b67fd51e7281e76452623740ddab53cd016826067e69e8dd4b5a9ffe8a988e1"},
+    {file = "rgb_lib-0.3.0b1-py3-none-win_amd64.whl", hash = "sha256:837b39a25d12525fd446cace901ac0b836957fc2ea433d8fe5d4fc43b4d573a5"},
+    {file = "rgb_lib-0.3.0b1.tar.gz", hash = "sha256:baadc4085e3c375d0465bae3bdcf86e7927554c50d589a6d6020ee58f303921b"},
 ]
 
 [[package]]
@@ -1705,4 +1705,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "~=3.9"
-content-hash = "9888ff429dbda9f2085735dd7de94bd3428e88bffd5db3dcb35d9ab97e57763d"
+content-hash = "d712bdd26f472de6693c83f5b1270061a116c79f6afc66a4bdb5be9f42929187"

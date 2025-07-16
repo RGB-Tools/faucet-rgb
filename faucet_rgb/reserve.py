@@ -1,6 +1,7 @@
 """Faucet blueprint to top-up funds."""
 
 from flask import Blueprint, current_app, jsonify, request
+import rgb_lib
 
 bp = Blueprint("reserve", __name__, url_prefix="/reserve")
 
@@ -25,7 +26,7 @@ def top_up_rgb():
     wallet = current_app.config["WALLET"]
     blind_data = wallet.blind_receive(
         None,
-        None,
+        rgb_lib.Assignment.ANY(),
         None,
         current_app.config["TRANSPORT_ENDPOINTS"],
         current_app.config["MIN_CONFIRMATIONS"],

@@ -34,7 +34,7 @@ new assets.
 
 ## Requirements
 - Python 3.9+
-- Poetry 1.4+
+- Poetry 2.0+
 
 ## Configuration
 
@@ -50,7 +50,9 @@ the environment variable will take precedence, overriding both.
 For the service to work it is necessary to configure at least the following
 variables:
 - `MNEMONIC`: the mnemonic for the wallet
-- `XPUB`: the extended public key of the wallet
+- `FINGERPRINT`: the fingerprint of the wallet
+- `XPUB_COLORED`: the extended public key for the colored side of the wallet
+- `XPUB_VANILLA`: the extended public key for the vanilla side of the wallet
 - `NAME`: the name of the faucet
 - `ASSETS`: the dictionary of asset groups to be used by the faucet
 
@@ -288,11 +290,14 @@ Migrations are handles via `flask-migrate`.
 
 To modify the DB structure:
 - change the DB (database.py)
-- setup a minimal faucet configuration in `instance/config.py`
-    - NAME
-    - XPUB (doesn't need to have funds)
-    - MNEMONIC (doesn't need to have funds)
-    - ASSETS (empty dict)
+- setup a minimal faucet configuration in `instance/config.py` (wallet doesn't
+  need to have funds)
+    - `NAME`
+    - `XPUB_COLORED`
+    - `XPUB_VANILLA`
+    - `MNEMONIC`
+    - `FINGERPRINT`
+    - `ASSETS` (empty dict)
 - run `poetry run flask --app faucet_rgb db migrate -m "<comment>"`
 - check the generated migration file (Alembic is not always able to detect
   every change to models)

@@ -99,10 +99,8 @@ def _try_send(reqs, cfg, recipient_map, stats):
             db.session.commit()  # pylint: disable=no-member
         except rgb_lib.RgbLibError.InsufficientAllocationSlots:
             logger.error("Failed to send: not enough allocation slots")
-        except rgb_lib.RgbLibError.InsufficientSpendableAssets:
-            logger.error("Failed to send: not enough spendable assets")
-        except rgb_lib.RgbLibError.InsufficientTotalAssets:
-            logger.error("Failed to send: not enough total assets")
+        except rgb_lib.RgbLibError.InsufficientAssignments:
+            logger.error("Failed to send: not enough assignments")
         except Exception:  # pylint: disable=broad-exception-caught
             # log any other error, including traceback
             logger.error("Failed to send: unexpected")

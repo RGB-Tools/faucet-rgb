@@ -5,6 +5,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 
+from flask.app import Flask
 import rgb_lib
 
 from faucet_rgb import Request, scheduler
@@ -94,7 +95,7 @@ def test_control_delete(get_app):
     # create a WAITING_COUNTERPARTY transfer + fail it
     _ = app.config["WALLET"].blind_receive(
         asset_id,
-        None,
+        rgb_lib.Assignment.ANY(),
         1,
         app.config["TRANSPORT_ENDPOINTS"],
         app.config["MIN_CONFIRMATIONS"],
@@ -143,7 +144,7 @@ def test_control_fail(get_app):
     # create a transfer in status WAITING_COUNTERPARTY with a 1s expiration
     _ = app.config["WALLET"].blind_receive(
         asset_id,
-        None,
+        rgb_lib.Assignment.ANY(),
         1,
         app.config["TRANSPORT_ENDPOINTS"],
         app.config["MIN_CONFIRMATIONS"],
@@ -386,7 +387,8 @@ def test_control_transfers(get_app):  # pylint: disable=too-many-statements
     assert resp.status_code == 200
     assert len(resp.json["transfers"]) == 1
     transfer = next(iter(resp.json["transfers"]))
-    assert "amount" in transfer
+    assert "amounts" in transfer
+    assert len(transfer["amounts"]) == 1
     assert "kind" in transfer
     assert transfer["kind"] == "SEND"
     assert "recipient_id" in transfer
@@ -420,7 +422,7 @@ def test_control_transfers(get_app):  # pylint: disable=too-many-statements
     # 1 WAITING_COUNTERPARTY transfer
     _ = app.config["WALLET"].blind_receive(
         asset_id,
-        None,
+        rgb_lib.Assignment.ANY(),
         1,
         app.config["TRANSPORT_ENDPOINTS"],
         app.config["MIN_CONFIRMATIONS"],
@@ -452,7 +454,7 @@ def test_control_transfers(get_app):  # pylint: disable=too-many-statements
 def test_control_unspents(get_app):
     """Test /control/unspents endpoint."""
     api = "/control/unspents"
-    app = get_app()
+    app: Flask = get_app()
     client = app.test_client()
 
     # auth failure
@@ -464,6 +466,7 @@ def test_control_unspents(get_app):
         headers=OPERATOR_HEADERS,
     )
     assert resp.status_code == 200
+    assert resp.json
     unspents = resp.json["unspents"]
     assert len(unspents) == 6
     colorable = [u for u in unspents if u["utxo"]["colorable"]]
@@ -485,7 +488,7 @@ def test_control_unspents(get_app):
 def test_receive_asset(get_app):
     """Test /receive/asset endpoint."""
     api = "/receive/asset"
-    app = get_app()
+    app: Flask = get_app()
     client = app.test_client()
 
     user = prepare_user_wallets(app, 1)[0]
@@ -519,6 +522,7 @@ def test_receive_asset(get_app):
     scheduler.pause()
     resp = receive_asset(client, user["xpub"], create_and_blind(app.config, user))
     assert resp.status_code == 200
+    assert resp.json
     asset = resp.json["asset"]
     with app.app_context():
         request = Request.query.one()
@@ -551,12 +555,13 @@ def test_receive_asset(get_app):
         headers=USER_HEADERS,
     )
     assert resp.status_code == 404
+    assert resp.json
     assert resp.json["error"] == "invalid asset group"
 
 
 def test_receive_asset_witness(get_app):
     """Test /receive/asset endpoint with a witness transfer."""
-    app = get_app()
+    app: Flask = get_app()
     client = app.test_client()
 
     user = prepare_user_wallets(app, 1)[0]
@@ -762,7 +767,7 @@ def test_reserve_topuprgb(get_app):  # pylint: disable=too-many-locals
             rgb_lib.Recipient(
                 recipient_id=invoice_data.recipient_id,
                 witness_data=None,
-                amount=amount,
+                assignment=rgb_lib.Assignment.FUNGIBLE(amount),
                 transport_endpoints=invoice_data.transport_endpoints,
             ),
         ]

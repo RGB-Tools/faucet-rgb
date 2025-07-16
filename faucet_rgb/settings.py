@@ -78,8 +78,10 @@ class Config:  # pylint: disable=too-few-public-methods
     # if true, send a single asset per batch
     # see send_next_batch() in file faucet_rgb/scheduler.py
     SINGLE_ASSET_SEND = True
-    # account-level extended pubkey for the underlying Bitcoin wallet
-    XPUB = None
+    # account-level extended pubkey for the colored side of the underlying Bitcoin wallet
+    XPUB_COLORED = None
+    # account-level extended pubkey for the vanilla side of the underlying Bitcoin wallet
+    XPUB_VANILLA = None
     # dictionary mapping new asset IDs to old ones for migration
     # for each group, either none or all assets have to be mapped for migration
     ASSET_MIGRATION_MAP = None
@@ -109,6 +111,8 @@ class Config:  # pylint: disable=too-few-public-methods
     WITNESS_ALLOWED_NETWORKS = ["testnet", "regtest"]
     # the change number to use for the vanilla (non-colored) keychain
     VANILLA_KEYCHAIN = 1
+    # the schemas the wallet supports
+    SUPPORTED_SCHEMAS = ["CFA", "NIA", "UDA"]
 
 
 class SchedulerFilter(logging.Filter):  # pylint: disable=too-few-public-methods
@@ -253,6 +257,7 @@ def check_assets(app):
         raise ConfigurationError(errors)
 
 
+# TODO check mnemonic, fingerprint, xpubs and supported_schemas here
 def check_config(app, log_dir):
     """Check the app configuration is valid."""
     # check database config

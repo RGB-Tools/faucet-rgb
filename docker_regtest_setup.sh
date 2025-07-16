@@ -58,11 +58,15 @@ chown 1000:1000 $DATA_DIR
 _tit "initializing the wallet"
 res="$($COMPOSE run --no-deps --rm -T faucet bash -lc "poetry run wallet-helper --init")"
 mnemonic=$(echo "$res" |awk -F':' '/mnemonic/ {print $2}' | xargs)
-xpub=$(echo "$res" |awk '/xpub/ {print $NF}')
+fingerprint=$(echo "$res" |awk -F':' '/fingerprint/ {print $2}' | xargs)
+xpub_colored=$(echo "$res" |awk '/xpub_colored/ {print $NF}')
+xpub_vanilla=$(echo "$res" |awk '/xpub_vanilla/ {print $NF}')
 cat >> $CONFIG_FILE <<EOF
 
 MNEMONIC = "$mnemonic"
-XPUB = "$xpub"
+FINGERPRINT = "$fingerprint"
+XPUB_COLORED = "$xpub_colored"
+XPUB_VANILLA = "$xpub_vanilla"
 EOF
 
 _tit "starting services"

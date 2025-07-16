@@ -6,17 +6,22 @@ import shutil
 import socket
 import subprocess
 import time
-import urllib
 from datetime import datetime
+from urllib import parse
 
 import rgb_lib
 from flask import Flask
 from flask_apscheduler import STATE_RUNNING
 
-from faucet_rgb import create_app, scheduler, utils
+from faucet_rgb import create_app, scheduler
 from faucet_rgb.database import Request, db
 from faucet_rgb.settings import Config
-from faucet_rgb.utils.wallet import get_sha256_hex, wallet_data_from_config
+from faucet_rgb.utils.wallet import (
+    get_sha256_hex,
+    init_wallet,
+    supported_schemas_from_config,
+    wallet_data_from_config,
+)
 
 BITCOIN_ARG = [
     "docker",
@@ -87,7 +92,7 @@ def _wait_electrs_sync():
     )
     height = int(getblockcount.stdout.decode().strip())
     # wait for electrs the have reached the same height
-    electrum = urllib.parse.urlparse(ELECTRUM_URL)
+    electrum = parse.urlparse(ELECTRUM_URL)
     message = {
         "method": "blockchain.block.header",
         "params": [height],
@@ -112,14 +117,18 @@ def _wait_electrs_sync():
 def _get_user_wallet(data_dir):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
+    supported_schemas = supported_schemas_from_config(Config.SUPPORTED_SCHEMAS)
     wallet_data = {
-        "xpub": keys.account_xpub,
+        "xpub_colored": keys.account_xpub_colored,
+        "xpub_vanilla": keys.account_xpub_vanilla,
         "mnemonic": keys.mnemonic,
+        "fingerprint": keys.master_fingerprint,
         "data_dir": data_dir,
         "network": NETWORK,
         "keychain": Config.VANILLA_KEYCHAIN,
+        "supported_schemas": supported_schemas,
     }
-    online, wallet = utils.wallet.init_wallet(ELECTRUM_URL, wallet_data)
+    online, wallet = init_wallet(ELECTRUM_URL, wallet_data)
     return {"wallet": wallet, "xpub": keys.xpub, "online": online}
 
 
@@ -155,7 +164,6 @@ def issue_single_asset_with_supply(app, supply):
     online = app.config["ONLINE"]
     wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False)
     cfa = wallet.issue_asset_cfa(
-        online,
         name="test with single CFA asset",
         details="a CFA asset for testing",
         precision=0,
@@ -189,7 +197,11 @@ def create_and_blind(config, user):
     wallet = user["wallet"]
     _ = wallet.create_utxos(user["online"], True, 1, config["UTXO_SIZE"], config["FEE_RATE"], False)
     receive_data = wallet.blind_receive(
-        None, None, None, config["TRANSPORT_ENDPOINTS"], config["MIN_CONFIRMATIONS"]
+        None,
+        rgb_lib.Assignment.ANY(),
+        None,
+        config["TRANSPORT_ENDPOINTS"],
+        config["MIN_CONFIRMATIONS"],
     )
     return receive_data.invoice
 
@@ -197,7 +209,11 @@ def create_and_blind(config, user):
 def create_and_witness(config, user):
     """Create up to 1 UTXO and return an invoice for a witness tx."""
     receive_data = user["wallet"].witness_receive(
-        None, None, None, config["TRANSPORT_ENDPOINTS"], config["MIN_CONFIRMATIONS"]
+        None,
+        rgb_lib.Assignment.ANY(),
+        None,
+        config["TRANSPORT_ENDPOINTS"],
+        config["MIN_CONFIRMATIONS"],
     )
     return receive_data.invoice
 
@@ -274,7 +290,7 @@ def check_receive_asset(
 
 def _prepare_utxos(app):
     wallet_data = wallet_data_from_config(app.config)
-    online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"], wallet_data)
+    online, wallet = init_wallet(app.config["ELECTRUM_URL"], wallet_data)
     wallet.refresh(online, None, [], False)
     addr = wallet.get_address()
     fund_address(addr)
@@ -301,14 +317,12 @@ def _issue_asset(app):
     online = app.config["ONLINE"]
     wallet.create_utxos(online, True, None, app.config["UTXO_SIZE"], app.config["FEE_RATE"], False)
     nia = wallet.issue_asset_nia(
-        online,
         ticker=f"TFT{_ASSET_COUNT}",
         name=f"test NIA asset ({_ASSET_COUNT})",
         precision=0,
         amounts=[ISSUE_AMOUNT, ISSUE_AMOUNT],
     )
     cfa = wallet.issue_asset_cfa(
-        online,
         name=f"test CFA asset ({_ASSET_COUNT})",
         details="a CFA asset for testing",
         precision=0,
@@ -371,9 +385,10 @@ def _prepare_test_app(custom_app_prep):
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, NETWORK.upper())
     keys = rgb_lib.generate_keys(bitcoin_network)
 
-    app.config["FINGERPRINT"] = keys.account_xpub_fingerprint
+    app.config["FINGERPRINT"] = keys.master_fingerprint
     app.config["MNEMONIC"] = keys.mnemonic
-    app.config["XPUB"] = keys.account_xpub
+    app.config["XPUB_VANILLA"] = keys.account_xpub_vanilla
+    app.config["XPUB_COLORED"] = keys.account_xpub_colored
 
     # prepare utxos and assets
     app = _prepare_utxos(app)
@@ -389,7 +404,8 @@ def _reconfigure_test_app(config):
     # re-configure wallet and assets
     app.config["FINGERPRINT"] = config["FINGERPRINT"]
     app.config["MNEMONIC"] = config["MNEMONIC"]
-    app.config["XPUB"] = config["XPUB"]
+    app.config["XPUB_VANILLA"] = config["XPUB_VANILLA"]
+    app.config["XPUB_COLORED"] = config["XPUB_COLORED"]
     app.config["WALLET"] = config["WALLET"]
     app.config["ASSETS"] = config["ASSETS"]
     app.config["ASSET_MIGRATION_MAP"] = config["ASSET_MIGRATION_MAP"]

@@ -76,7 +76,7 @@ def get_recipient(invoice, amount, cfg):
     recipient = rgb_lib.Recipient(
         recipient_id=recipient_id,
         witness_data=witness_data,
-        amount=amount,
+        assignment=rgb_lib.Assignment.FUNGIBLE(amount),
         transport_endpoints=invoice_data.transport_endpoints,
     )
     return recipient

@@ -8,6 +8,7 @@ import rgb_lib
 from rich import print as rp
 
 from faucet_rgb import settings, utils
+from faucet_rgb.utils.wallet import get_unspent_list, init_wallet, wallet_data_from_config
 
 
 def _print_assets(asset_type, assets):
@@ -49,18 +50,14 @@ def entrypoint():  # noqa: C901 # pylint: disable=too-many-statements
         keys = rgb_lib.generate_keys(bitcoin_network)
         print(f"new {network} wallet keys:")
         print(" - mnemonic:", keys.mnemonic)
-        print(" - xpub:", keys.account_xpub)
+        print(" - fingerprint:", keys.master_fingerprint)
+        print(" - xpub_colored:", keys.account_xpub_colored)
+        print(" - xpub_vanilla:", keys.account_xpub_vanilla)
         sys.exit(0)
 
     # processing other argument
-    wallet_data = {
-        "xpub": app.config["XPUB"],
-        "mnemonic": app.config["MNEMONIC"],
-        "data_dir": data_dir,
-        "network": network,
-        "keychain": app.config["VANILLA_KEYCHAIN"],
-    }
-    online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"], wallet_data)
+    wallet_data = wallet_data_from_config(app.config)
+    online, wallet = init_wallet(app.config["ELECTRUM_URL"], wallet_data)
 
     if args.refresh:
         print("refreshing...")
@@ -96,7 +93,11 @@ def entrypoint():  # noqa: C901 # pylint: disable=too-many-statements
         # pylint: enable=duplicate-code
         try:
             blind_data = wallet.blind_receive(
-                None, None, None, ["rpc://localhost:3000/json-rpc"], app.config["MIN_CONFIRMATIONS"]
+                None,
+                rgb_lib.Assignment.ANY(),
+                None,
+                ["rpc://localhost:3000/json-rpc"],
+                app.config["MIN_CONFIRMATIONS"],
             )
             print(f"blinded_utxo: {blind_data.recipient_id}")
         except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception
@@ -105,5 +106,5 @@ def entrypoint():  # noqa: C901 # pylint: disable=too-many-statements
 
     if args.unspents:
         rp("\nUnspents:")
-        unspent_dict = utils.wallet.get_unspent_list(wallet, online)
+        unspent_dict = get_unspent_list(wallet, online)
         rp(unspent_dict)

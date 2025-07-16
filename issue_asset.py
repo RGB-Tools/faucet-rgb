@@ -6,10 +6,11 @@ import sys
 
 import rgb_lib
 
-from faucet_rgb import settings, utils
+from faucet_rgb import settings
+from faucet_rgb.utils.wallet import init_wallet, wallet_data_from_config
 
 
-def _confirm_summary(args, to_print):
+def _confirm_summary(args: argparse.Namespace, to_print: list[str]):
     print(f"You're about to issue the following {args.schema} asset:")
     for arg in to_print:
         print(f" - {arg}: {getattr(args, arg)}")
@@ -20,7 +21,7 @@ def _confirm_summary(args, to_print):
         sys.exit(0)
 
 
-def _issue_asset(wallet, online, args):
+def _issue_asset(wallet: rgb_lib.Wallet, args: argparse.Namespace):
     common = ["name", "precision", "amounts"]
     if args.schema.lower() == "nia":
         if not args.ticker:
@@ -28,11 +29,10 @@ def _issue_asset(wallet, online, args):
             sys.exit(1)
         if not args.unattended:
             _confirm_summary(args, common + ["ticker"])
-        asset = wallet.issue_asset_nia(online, args.ticker, args.name, args.precision, args.amounts)
+        asset = wallet.issue_asset_nia(args.ticker, args.name, args.precision, args.amounts)
     elif args.schema.lower() == "cfa":
         _confirm_summary(args, common + ["details", "file_path"])
         asset = wallet.issue_asset_cfa(
-            online,
             args.name,
             args.details,
             args.precision,
@@ -53,7 +53,7 @@ def entrypoint():
     # mandatory common arguments
     parser.add_argument("name", help="asset name")
     parser.add_argument("precision", type=int, help="asset precision")
-    parser.add_argument("amounts", type=int, nargs="+", help="issuance amount")
+    parser.add_argument("amounts", type=int, nargs="+", help="issuance amounts")
     # optional schema-based arguments
     parser.add_argument("--ticker", nargs="?", help="Uppercase ticker for NIA assets")
     parser.add_argument("--details", nargs="?", help="Details for CFA assets")
@@ -68,8 +68,8 @@ def entrypoint():
     data_dir = app.config["DATA_DIR"]
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    wallet_data = utils.wallet.wallet_data_from_config(app.config)
-    online, wallet = utils.wallet.init_wallet(app.config["ELECTRUM_URL"], wallet_data)
+    wallet_data = wallet_data_from_config(app.config)
+    online, wallet = init_wallet(app.config["ELECTRUM_URL"], wallet_data)
 
     # asset issuance
     # pylint: disable=duplicate-code
@@ -95,4 +95,4 @@ def entrypoint():
         )
         sys.exit(1)
     # pylint: enable=duplicate-code
-    _issue_asset(wallet, online, args)
+    _issue_asset(wallet, args)
