@@ -8,8 +8,11 @@ from logging.config import dictConfig
 from flask import g, request
 from flask_apscheduler import STATE_STOPPED
 from flask_migrate import upgrade
+from rgb_lib import Wallet
 from sqlalchemy import and_
 from werkzeug.middleware.proxy_fix import ProxyFix
+
+from faucet_rgb.exceptions import ConfigurationError
 
 from . import control, receive, reserve, tasks
 from .database import Request, db, migrate
@@ -41,8 +44,7 @@ def print_assets_and_quit(assets, asset_id):
             asset.media,
             asset.balance,
         )
-    print(f'Cannot proceed: configured asset with id "{asset_id}" not found')
-    sys.exit(1)
+    raise ConfigurationError([f'configured asset with ID "{asset_id}" not found'])
 
 
 def validate_migration_map(app):
@@ -189,9 +191,15 @@ def create_app(custom_get_app=None, do_init_wallet=True):
         )
 
     # ensure all the configured assets are available
-    wallet = app.config["WALLET"]
+    wallet: Wallet = app.config["WALLET"]
     assets = wallet.list_assets([])
-    asset_ids = [asset.asset_id for asset in assets.nia + assets.cfa]
+    assets_nia = []
+    assets_cfa = []
+    if assets.nia:
+        assets_nia.extend(assets.nia)
+    if assets.cfa:
+        assets_cfa.extend(assets.cfa)
+    asset_ids = [asset.asset_id for asset in assets_nia + assets_cfa]
     for _, data in app.config["ASSETS"].items():
         for asset in data["assets"]:
             asset_id = asset["asset_id"]

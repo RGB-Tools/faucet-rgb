@@ -69,16 +69,28 @@ def _app_prep_cfg_random_bad_req_win(app):
     return app
 
 
-def _app_preparation_0conf(app):
+def _app_prep_0conf(app):
     """Prepare app for the first launch."""
     app = prepare_assets(app, "group_1")
     app.config["MIN_CONFIRMATIONS"] = 0
     return app
 
 
+def _app_prep_missing_asset(app):
+    """Prepare app with a missing asset."""
+    group_name = "group_1"
+    app = prepare_assets(app, group_name=group_name)
+    asset_1_id = app.config["ASSETS"][group_name]["assets"][0]["asset_id"]
+    # swap the last two characters to change the asset ID
+    assert asset_1_id[-2] != asset_1_id[-1]
+    asset_1_id = asset_1_id[:-2] + asset_1_id[-1] + asset_1_id[-2]
+    app.config["ASSETS"][group_name]["assets"][0]["asset_id"] = asset_1_id
+    return app
+
+
 def test_0_conf(get_app):
     """Test MIN_CONFIRMATIONS set to 0."""
-    app = get_app(_app_preparation_0conf)
+    app = get_app(_app_prep_0conf)
     client = app.test_client()
 
     # request an asset
@@ -146,3 +158,13 @@ def test_cfg_random_bad_req_win(get_app):
     except exceptions.ConfigurationError as err:
         assert len(err.errors) == 1
         assert "not after open" in err.errors[0]
+
+
+def test_cfg_missing_asset(get_app):
+    """Test configuration with missing asset."""
+    try:
+        get_app(_app_prep_missing_asset)
+    except exceptions.ConfigurationError as err:
+        assert len(err.errors) == 1
+        assert "configured asset with ID" in err.errors[0]
+        assert "not found" in err.errors[0]

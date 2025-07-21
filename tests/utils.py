@@ -333,7 +333,7 @@ def _issue_asset(app):
 
 
 def prepare_assets(
-    app, group_name="group_1", dist_mode=None, issue_func=None, send_amount=SEND_AMOUNT
+    app: Flask, group_name="group_1", dist_mode=None, issue_func=None, send_amount=SEND_AMOUNT
 ):
     """Issue (NIA, CFA) asset pair and set the config for the app.
 

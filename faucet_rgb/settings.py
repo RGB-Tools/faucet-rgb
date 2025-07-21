@@ -185,7 +185,7 @@ LOGGING = {
 }
 
 
-def check_distribution(app, group_name, group_val, errors):
+def check_distribution(app: Flask, group_name: str, group_val: dict, errors: list[str]):
     """Check distribution configuration for the given group."""
     err_begin = "missing distribution"
     err_end = f"for group {group_name}"
