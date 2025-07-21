@@ -1,10 +1,12 @@
 """Wallet utils module."""
 
 import string
-import sys
 from hashlib import sha256
 
 import rgb_lib
+
+from faucet_rgb.exceptions import ConfigurationError
+from faucet_rgb.settings import SUPPORTED_NETWORKS
 
 
 def supported_schemas_from_config(supported_schemas):
@@ -12,7 +14,6 @@ def supported_schemas_from_config(supported_schemas):
     try:
         ss_enum_vars = [rgb_lib.AssetSchema[s] for s in supported_schemas]
     except KeyError as err:
-        # TODO test this
         raise ValueError(f"Invalid supported schemas configuration: {err}") from err
     return ss_enum_vars
 
@@ -45,27 +46,26 @@ def amount_from_assignment(assignment: rgb_lib.Assignment):
     return amount
 
 
-# TODO can these checks be move (relied upon) to settings.check_config ?
 def init_wallet(electrum_url, wallet_data):
     """Initialize the wallet."""
     print("Initializing wallet...")
+    errors = []
     if wallet_data["xpub_vanilla"] is None or wallet_data["xpub_colored"] is None:
-        print("Wallet XPUBs not properly configured!")
-        raise RuntimeError("Faucet unavailable")
+        errors.append("wallet XPUBs not properly configured")
     if wallet_data["mnemonic"] is None:
-        print("Wallet mnemonic not configured!")
-        raise RuntimeError("Faucet unavailable")
+        errors.append("wallet mnemonic not configured")
     if wallet_data["fingerprint"] is None:
-        print("Wallet fingerprint not configured!")
-        raise RuntimeError("Faucet unavailable")
+        errors.append("wallet fingerprint not configured")
     if not wallet_data["supported_schemas"]:
-        print("Wallet supported schemas not configured!")
-        raise RuntimeError("Faucet unavailable")
-    # TODO check for supported networks
+        errors.append("wallet supported schemas not configured")
     network = wallet_data["network"]
-    if not hasattr(rgb_lib.BitcoinNetwork, network.upper()):
-        print(f'unsupported Bitcoin network "{network}"')
-        sys.exit(1)
+    if (
+        not hasattr(rgb_lib.BitcoinNetwork, network.upper())
+        or network.lower() not in SUPPORTED_NETWORKS
+    ):
+        errors.append('unsupported Bitcoin network "{network}"')
+    if errors:
+        raise ConfigurationError(errors)
     bitcoin_network = getattr(rgb_lib.BitcoinNetwork, network.upper())
     try:
         wallet = rgb_lib.Wallet(
@@ -83,8 +83,7 @@ def init_wallet(electrum_url, wallet_data):
             )
         )
     except rgb_lib.RgbLibError as err:  # pylint: disable=catching-non-exception
-        print("rgb_lib error:", err)
-        raise RuntimeError("Faucet unavailable") from err
+        raise ConfigurationError([f"error initializing rgb-lib wallet: {err}"]) from err
     online = wallet.go_online(False, electrum_url)
     wallet.refresh(online, None, [], False)
     return online, wallet

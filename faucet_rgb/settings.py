@@ -2,7 +2,6 @@
 
 import logging
 import os
-import sys
 from datetime import datetime
 from enum import Enum
 
@@ -257,13 +256,11 @@ def check_assets(app):
         raise ConfigurationError(errors)
 
 
-# TODO check mnemonic, fingerprint, xpubs and supported_schemas here
 def check_config(app, log_dir):
     """Check the app configuration is valid."""
     # check database config
     if not app.config["DATABASE_NAME"]:
-        print("Cannot proceed without a configured database name")
-        sys.exit(1)
+        raise ConfigurationError(["cannot proceed without a configured database name"])
     db_realpath = os.path.realpath(
         os.path.sep.join([app.config["DATA_DIR"], app.config["DATABASE_NAME"]])
     )
@@ -271,13 +268,13 @@ def check_config(app, log_dir):
 
     # check the faucet name is configured
     if not app.config["NAME"]:
-        print("Cannot proceed without a configured faucet name")
-        sys.exit(1)
+        raise ConfigurationError(["cannot proceed without a configured faucet name"])
 
     # check network
     if app.config["NETWORK"] not in SUPPORTED_NETWORKS:
-        print("Unsupported network. Supported ones:", ", ".join(SUPPORTED_NETWORKS))
-        sys.exit(1)
+        raise ConfigurationError(
+            ["unsupported network, supported ones:", ", ".join(SUPPORTED_NETWORKS)]
+        )
 
     # check asset configuration
     check_assets(app)

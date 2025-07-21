@@ -2,7 +2,6 @@
 
 import itertools
 import os
-import sys
 import uuid
 from logging.config import dictConfig
 
@@ -64,8 +63,9 @@ def validate_migration_map(app):
                 if asset["asset_id"] == asset_id:
                     containing_group = group_name
         if containing_group is None:
-            print(f"error in ASSET_MIGRATION_MAP! asset {asset_id} is not " "defined in any group!")
-            sys.exit(1)
+            raise ConfigurationError(
+                [f"error in ASSET_MIGRATION_MAP! asset {asset_id} is not " "defined in any group!"]
+            )
 
         groups_to.add(containing_group)
 
@@ -75,11 +75,12 @@ def validate_migration_map(app):
         for asset in app.config["ASSETS"][group_to]["assets"]:
             asset_id = asset["asset_id"]
             if asset_id not in dest_asset_ids:
-                print(
-                    f"asset ID {asset_id} is not defined as a migration "
-                    "destination while other assets in the same group are!"
+                raise ConfigurationError(
+                    [
+                        f"asset ID {asset_id} is not defined as a migration "
+                        "destination while other assets in the same group are!"
+                    ]
                 )
-                sys.exit(1)
     app.config["NON_MIGRATION_GROUPS"] = set(app.config["ASSETS"]) - groups_to
 
 
