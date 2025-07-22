@@ -41,7 +41,7 @@ def _app_prep_random_multiple_assets(app):
     """Prepare app to test random distribution."""
     now = datetime.now()
     req_win_open = now
-    dist_mode = random_dist_mode(app.config, req_win_open, req_win_open + timedelta(minutes=1))
+    dist_mode = random_dist_mode(app.config, req_win_open, req_win_open + timedelta(seconds=30))
     app = prepare_assets(
         app,
         "group_1",
@@ -186,7 +186,7 @@ def test_random_multiple_assets(get_app):  # pylint: disable=too-many-locals
     client = app.test_client()
 
     asset_balance = 2
-    extra_requests = 1
+    extra_requests = 2
     request_num = (asset_balance + extra_requests) * 2
 
     dist_conf = app.config["ASSETS"]["group_1"]["distribution"]
@@ -227,15 +227,14 @@ def test_random_multiple_assets(get_app):  # pylint: disable=too-many-locals
     # wait for scheduler job to process requests
     wait_sched_process_waiting(app)
     wait_sched_process_pending(app)
-    time.sleep(5)  # give the scheduler time to complete the send
 
     # wait for requests to have moved to served or unmet status
     with app.app_context():
         deadline = time.time() + 30
         while True:
             time.sleep(2)
-            # <asset_balance> requests expected in status served
-            # <extra_requests> requests expected in status unmet (not selected)
+            # <asset_balance> * 2 requests expected in status served
+            # <extra_requests> * 2 requests expected in status unmet (not selected)
             served = Request.query.filter_by(status=40).count()
             unmet = Request.query.filter_by(status=45).count()
             if served == asset_balance * 2 and unmet == extra_requests * 2:
