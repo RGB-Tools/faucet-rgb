@@ -2,7 +2,7 @@
 
 import rgb_lib
 from flask import Blueprint, current_app, jsonify, request
-from rgb_lib import TransferStatus
+from rgb_lib import Online, Transfer, TransferStatus, Wallet
 
 from faucet_rgb import utils
 from faucet_rgb.utils.wallet import amount_from_assignment, get_unspent_list
@@ -10,6 +10,9 @@ from faucet_rgb.utils.wallet import amount_from_assignment, get_unspent_list
 from .database import Request
 
 bp = Blueprint("control", __name__, url_prefix="/control")
+
+
+# routes
 
 
 @bp.route("/assets", methods=["GET"])
@@ -66,58 +69,22 @@ def list_transfers():
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
 
-    # set status filter from query parameter or default to pending ones
-    status_filter = [
-        TransferStatus.WAITING_COUNTERPARTY,
-        TransferStatus.WAITING_CONFIRMATIONS,
-    ]
-    status = request.args.get("status")
-    if status is not None:
-        if not hasattr(TransferStatus, status.upper()):
-            return jsonify({"error": f"unknown status requested: {status}"}), 403
-        status_filter = [getattr(TransferStatus, status.upper())]
+    status_filter, error = _get_status_filter(request.args.get("status"))
+    if error:
+        return jsonify({"error": error}), 403
+    assert status_filter
 
-    # refresh and list transfers in matching status(es)
-    online: rgb_lib.Online = current_app.config["ONLINE"]
-    wallet: rgb_lib.Wallet = current_app.config["WALLET"]
+    online: Online = current_app.config["ONLINE"]
+    wallet: Wallet = current_app.config["WALLET"]
     wallet.refresh(online, None, [], False)
-    asset_list = wallet.list_assets([])
-    assets_nia = []
-    assets_cfa = []
-    if asset_list.nia:
-        assets_nia.extend(asset_list.nia)
-    if asset_list.cfa:
-        assets_cfa.extend(asset_list.cfa)
-    asset_ids = [a.asset_id for a in assets_nia + assets_cfa]
+    asset_ids = _get_asset_ids(wallet)
     transfers = []
     for asset_id in asset_ids:
         asset_transfers = wallet.list_transfers(asset_id)
         for transfer in asset_transfers:
             if transfer.status not in status_filter:
                 continue
-            ttes = [
-                {
-                    "endpoint": tte.endpoint,
-                    "transport_type": tte.transport_type.name,
-                    "used": tte.used,
-                }
-                for tte in transfer.transport_endpoints
-            ]
-            for a in transfer.assignments:
-                if not a.is_fungible():
-                    # TODO test this
-                    raise RuntimeError("only fungible assignments are supported")
-            amounts = [amount_from_assignment(a) for a in transfer.assignments]
-            transfers.append(
-                {
-                    "status": transfer.status.name,
-                    "amounts": amounts,
-                    "kind": transfer.kind.name,
-                    "txid": transfer.txid,
-                    "recipient_id": transfer.recipient_id,
-                    "transfer_transport_endpoints": ttes,
-                }
-            )
+            transfers.append(_format_transfer(transfer))
     return jsonify({"transfers": transfers})
 
 
@@ -214,3 +181,53 @@ def unspents():
     wallet = current_app.config["WALLET"]
     unspent_list = get_unspent_list(wallet, online)
     return jsonify({"unspents": unspent_list})
+
+
+# helpers
+
+
+def _get_status_filter(status):
+    """
+    Return the status filter list based on the query parameter,
+    defaulting to pending ones.
+    """
+    if status is None:
+        return [
+            TransferStatus.WAITING_COUNTERPARTY,
+            TransferStatus.WAITING_CONFIRMATIONS,
+        ], None
+    if not hasattr(TransferStatus, status.upper()):
+        return None, f"unknown status requested: {status}"
+    return [getattr(TransferStatus, status.upper())], None
+
+
+def _get_asset_ids(wallet: Wallet):
+    """Return a list of NIA and CFA asset IDs from the wallet."""
+    asset_list = wallet.list_assets([])
+    assets_nia = asset_list.nia or []
+    assets_cfa = asset_list.cfa or []
+    return [a.asset_id for a in assets_nia + assets_cfa]
+
+
+def _format_transfer(transfer: Transfer):
+    """Format a transfer object for the API response."""
+    ttes = [
+        {
+            "endpoint": tte.endpoint,
+            "transport_type": tte.transport_type.name,
+            "used": tte.used,
+        }
+        for tte in transfer.transport_endpoints
+    ]
+    for a in transfer.assignments:
+        if not a.is_fungible():
+            raise RuntimeError("only fungible assignments are supported")
+    amounts = [amount_from_assignment(a) for a in transfer.assignments]
+    return {
+        "status": transfer.status.name,
+        "amounts": amounts,
+        "kind": transfer.kind.name,
+        "txid": transfer.txid,
+        "recipient_id": transfer.recipient_id,
+        "transfer_transport_endpoints": ttes,
+    }
