@@ -3,25 +3,23 @@
 import itertools
 import os
 import uuid
-from logging.config import dictConfig
 
-from flask import g, request
+from flask import Flask, g, request
 from flask_apscheduler import STATE_STOPPED
 from flask_migrate import upgrade
 from rgb_lib import Wallet
 from sqlalchemy import and_
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from faucet_rgb.exceptions import ConfigurationError
-
 from . import control, receive, reserve, tasks
 from .database import Request, db, migrate
+from .exceptions import ConfigurationError
 from .scheduler import scheduler
-from .settings import LOGGING, check_config, get_app
+from .settings import check_config, configure_logging, get_app
 from .utils.wallet import get_sha256_hex, init_wallet, wallet_data_from_config
 
 
-def print_assets_and_quit(assets, asset_id):
+def _print_assets_and_quit(assets, asset_id):
     """Print provided assets and asset ID, then terminate the process."""
     print("List of available NIA assets:")
     for asset in assets.nia:
@@ -47,7 +45,7 @@ def print_assets_and_quit(assets, asset_id):
     raise ConfigurationError([f'configured asset with ID "{asset_id}" not found'])
 
 
-def validate_migration_map(app):
+def _validate_migration_map(app: Flask):
     """Ensure the sanity of `ASSET_MIGRATION_MAP`
 
     New asset IDs in `ASSET_MIGRATION_MAP` (if any) must also be defined in the
@@ -86,6 +84,20 @@ def validate_migration_map(app):
     app.config["NON_MIGRATION_GROUPS"] = set(app.config["ASSETS"]) - groups_to
 
 
+def _check_asset_availability(app: Flask):
+    """Ensure all the configured assets are available in the wallet."""
+    wallet: Wallet = app.config["WALLET"]
+    assets = wallet.list_assets([])
+    assets_nia = assets.nia or []
+    assets_cfa = assets.cfa or []
+    asset_ids = [asset.asset_id for asset in assets_nia + assets_cfa]
+    for _, data in app.config["ASSETS"].items():
+        for asset in data["assets"]:
+            asset_id = asset["asset_id"]
+            if asset_id not in asset_ids:
+                _print_assets_and_quit(assets, asset_id)
+
+
 def _get_group_and_asset_from_id(app, asset_id):
     for group_name, group_data in app.config["ASSETS"].items():
         for asset in group_data["assets"]:
@@ -114,7 +126,28 @@ def _get_all_requests_waiting_for_migration(rev_mig_map):
     return reqs_waiting_for_migration
 
 
-def create_user_migration_cache(app):
+def _init_scheduler(app: Flask):
+    """Initialize and start the scheduler."""
+    if scheduler.state == STATE_STOPPED:
+        scheduler.init_app(app)
+        scheduler.add_job(
+            func=tasks.batch_donation,
+            trigger="interval",
+            seconds=app.config["SCHEDULER_INTERVAL"],
+            id="batch_donation",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            func=tasks.random_distribution,
+            trigger="interval",
+            seconds=app.config["SCHEDULER_INTERVAL"],
+            id="random_distribution",
+            replace_existing=True,
+        )
+        scheduler.start()
+
+
+def _create_user_migration_cache(app: Flask):
     """Create `ASSET_MIGRATION_CACHE`, which is used later to perform migration.
 
     See settings.py::Config for more details about the cache.
@@ -180,8 +213,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
 
     # configuration checks
     check_config(app, log_dir)
-
-    validate_migration_map(app)
+    _validate_migration_map(app)
 
     # initialize the wallet
     if do_init_wallet:
@@ -191,20 +223,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
         )
 
     # ensure all the configured assets are available
-    wallet: Wallet = app.config["WALLET"]
-    assets = wallet.list_assets([])
-    assets_nia = []
-    assets_cfa = []
-    if assets.nia:
-        assets_nia.extend(assets.nia)
-    if assets.cfa:
-        assets_cfa.extend(assets.cfa)
-    asset_ids = [asset.asset_id for asset in assets_nia + assets_cfa]
-    for _, data in app.config["ASSETS"].items():
-        for asset in data["assets"]:
-            asset_id = asset["asset_id"]
-            if asset_id not in asset_ids:
-                print_assets_and_quit(assets, asset_id)
+    _check_asset_availability(app)
 
     # initialize DB
     db.init_app(app)
@@ -213,11 +232,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
         upgrade()
 
     # configure logging (needs to be after migration as alembic resets it)
-    LOGGING["handlers"]["file"]["filename"] = app.config["LOG_FILENAME"]
-    LOGGING["handlers"]["file_sched"]["filename"] = app.config["LOG_FILENAME_SCHED"]
-    LOGGING["handlers"]["console"]["level"] = app.config["LOG_LEVEL_CONSOLE"]
-    LOGGING["handlers"]["file"]["level"] = app.config["LOG_LEVEL_FILE"]
-    dictConfig(LOGGING)
+    configure_logging(app)
 
     # pylint: disable=no-member
     @app.before_request
@@ -232,7 +247,7 @@ def create_app(custom_get_app=None, do_init_wallet=True):
 
     # pylint: enable=no-member
 
-    create_user_migration_cache(app)
+    _create_user_migration_cache(app)
 
     # register blueprints
     app.register_blueprint(control.bp)
@@ -245,22 +260,6 @@ def create_app(custom_get_app=None, do_init_wallet=True):
 
     # initialize the scheduler, only if not already running
     # this is necessary when re-starting the app from tests
-    if scheduler.state == STATE_STOPPED:
-        scheduler.init_app(app)
-        scheduler.add_job(
-            func=tasks.batch_donation,
-            trigger="interval",
-            seconds=app.config["SCHEDULER_INTERVAL"],
-            id="batch_donation",
-            replace_existing=True,
-        )
-        scheduler.add_job(
-            func=tasks.random_distribution,
-            trigger="interval",
-            seconds=app.config["SCHEDULER_INTERVAL"],
-            id="random_distribution",
-            replace_existing=True,
-        )
-        scheduler.start()
+    _init_scheduler(app)
 
     return app

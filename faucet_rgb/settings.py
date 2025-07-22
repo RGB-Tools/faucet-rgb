@@ -2,8 +2,10 @@
 
 import logging
 import os
+
 from datetime import datetime
 from enum import Enum
+from logging.config import dictConfig
 
 from flask import Flask
 
@@ -233,7 +235,7 @@ def _check_distribution_random(cfg, dist_conf, errors, err_begin, err_end):
         pass
 
 
-def check_assets(app):
+def check_assets(app: Flask):
     """Check asset configuration is valid."""
     errors = []
     if not app.config["ASSETS"]:
@@ -256,7 +258,7 @@ def check_assets(app):
         raise ConfigurationError(errors)
 
 
-def check_config(app, log_dir):
+def check_config(app: Flask, log_dir):
     """Check the app configuration is valid."""
     # check database config
     if not app.config["DATABASE_NAME"]:
@@ -297,3 +299,12 @@ def get_app(name):
     app.config.from_envvar("FAUCET_SETTINGS", silent=True)
 
     return app
+
+
+def configure_logging(app: Flask):
+    """Configure logging for the application."""
+    LOGGING["handlers"]["file"]["filename"] = app.config["LOG_FILENAME"]
+    LOGGING["handlers"]["file_sched"]["filename"] = app.config["LOG_FILENAME_SCHED"]
+    LOGGING["handlers"]["console"]["level"] = app.config["LOG_LEVEL_CONSOLE"]
+    LOGGING["handlers"]["file"]["level"] = app.config["LOG_LEVEL_FILE"]
+    dictConfig(LOGGING)
