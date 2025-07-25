@@ -4,7 +4,9 @@ import logging
 import time
 
 import rgb_lib
-from flask import current_app
+
+from flask import Config, current_app
+from rgb_lib import AssetCfa, AssetNia, Unspent, Wallet
 
 
 def get_current_timestamp():
@@ -12,16 +14,16 @@ def get_current_timestamp():
     return round(time.time())
 
 
-def get_logger(name):
+def get_logger(name: str):
     """Return a logger instance with the provided name and DEBUG level."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     return logger
 
 
-def get_rgb_asset(asset_id):
+def get_rgb_asset(asset_id: str):
     """Return the RGB asset with the given ID and its schema, if found."""
-    wallet = current_app.config["WALLET"]
+    wallet: Wallet = current_app.config["WALLET"]
     assets = wallet.list_assets([])
     for schema in ("nia", "cfa"):
         for asset in getattr(assets, schema):
@@ -30,7 +32,7 @@ def get_rgb_asset(asset_id):
     return None, None
 
 
-def get_asset_dict(assets):
+def get_asset_dict(assets: list[AssetNia | AssetCfa]):
     """Return a dict of the available assets."""
     asset_dict = {}
     for asset in assets:
@@ -60,7 +62,7 @@ def get_asset_dict(assets):
     return asset_dict
 
 
-def get_recipient(invoice, amount, cfg):
+def get_recipient(invoice: str, amount: int, cfg: Config):
     """Return a recipient for the given invoice."""
     invoice_data = rgb_lib.Invoice(invoice).invoice_data()
     recipient_id = invoice_data.recipient_id
@@ -82,13 +84,14 @@ def get_recipient(invoice, amount, cfg):
     return recipient
 
 
-def get_spare_utxos(config):
+def get_spare_utxos(config: Config):
     """Return the list of spare colorable UTXOs."""
-    unspents = config["WALLET"].list_unspents(config["ONLINE"], False, False)
+    wallet: Wallet = config["WALLET"]
+    unspents = wallet.list_unspents(config["ONLINE"], False, False)
     return [u for u in unspents if u.utxo.colorable and not u.rgb_allocations]
 
 
-def get_recipient_map_stats(recipient_map):
+def get_recipient_map_stats(recipient_map: dict):
     """Return stats on the provided recipient map."""
     stats = {}
     stats["assets"] = len(recipient_map)
@@ -100,19 +103,19 @@ def get_recipient_map_stats(recipient_map):
     return stats
 
 
-def get_witness_needed(config, stats):
+def get_witness_needed(config: Config, stats: dict) -> int:
     """Get satoshis needed to fund witness transfers."""
     return config["UTXO_SIZE"] * stats["witnesses"]
 
 
-def get_spare_available(spare_utxos):
+def get_spare_available(spare_utxos: list[Unspent]):
     """Get satoshis available in spare colored UTXOs."""
     # amounts from spare UTXOs, biggest excluded (change)
     amounts = sorted([u.utxo.btc_amount for u in spare_utxos][:-1])
     return sum(amounts)
 
 
-def is_blinded_utxo(recipient_id):
+def is_blinded_utxo(recipient_id: str):
     """Return if the given recipient ID is a blinded UTXO or not."""
     blinded_utxo = True
     try:
@@ -124,15 +127,16 @@ def is_blinded_utxo(recipient_id):
     return blinded_utxo
 
 
-def create_witness_utxos(config, stats, spare_utxos):
+def create_witness_utxos(config: Config, stats: dict, spare_utxos: list[Unspent]):
     """Create UTXOs needed to support witness transfers, if needed."""
     needed = get_witness_needed(config, stats)
     available = get_spare_available(spare_utxos)
     # if needed, create enough UTXOs to fund witness recipients
+    wallet: Wallet = config["WALLET"]
     created = 0
     if available < needed:
         utxo_num = round((needed - available) / config["UTXO_SIZE"]) + 1
-        created = config["WALLET"].create_utxos(
+        created = wallet.create_utxos(
             config["ONLINE"], False, utxo_num, config["UTXO_SIZE"], config["FEE_RATE"], False
         )
     return created

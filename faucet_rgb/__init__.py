@@ -7,7 +7,7 @@ import uuid
 from flask import Flask, g, request
 from flask_apscheduler import STATE_STOPPED
 from flask_migrate import upgrade
-from rgb_lib import Wallet
+from rgb_lib import Assets, Wallet
 from sqlalchemy import and_
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -19,29 +19,31 @@ from .settings import check_config, configure_logging, get_app
 from .utils.wallet import get_sha256_hex, init_wallet, wallet_data_from_config
 
 
-def _print_assets_and_quit(assets, asset_id):
+def _print_assets_and_quit(assets: Assets, asset_id: str):
     """Print provided assets and asset ID, then terminate the process."""
     print("List of available NIA assets:")
-    for asset in assets.nia:
-        print(
-            " -",
-            asset.asset_id,
-            asset.ticker,
-            asset.name,
-            asset.precision,
-            asset.balance,
-        )
+    if assets.nia:
+        for asset in assets.nia:
+            print(
+                " -",
+                asset.asset_id,
+                asset.ticker,
+                asset.name,
+                asset.precision,
+                asset.balance,
+            )
     print("List of available CFA assets:")
-    for asset in assets.cfa:
-        print(
-            " -",
-            asset.asset_id,
-            asset.name,
-            asset.details,
-            asset.precision,
-            asset.media,
-            asset.balance,
-        )
+    if assets.cfa:
+        for asset in assets.cfa:
+            print(
+                " -",
+                asset.asset_id,
+                asset.name,
+                asset.details,
+                asset.precision,
+                asset.media,
+                asset.balance,
+            )
     raise ConfigurationError([f'configured asset with ID "{asset_id}" not found'])
 
 
@@ -98,7 +100,7 @@ def _check_asset_availability(app: Flask):
                 _print_assets_and_quit(assets, asset_id)
 
 
-def _get_group_and_asset_from_id(app, asset_id):
+def _get_group_and_asset_from_id(app: Flask, asset_id: str):
     for group_name, group_data in app.config["ASSETS"].items():
         for asset in group_data["assets"]:
             if asset["asset_id"] == asset_id:
@@ -106,7 +108,7 @@ def _get_group_and_asset_from_id(app, asset_id):
     raise KeyError(asset_id)
 
 
-def _get_all_requests_waiting_for_migration(rev_mig_map):
+def _get_all_requests_waiting_for_migration(rev_mig_map: dict[str, str]):
     """Gather all requests which haven't completed migration."""
     reqs = (
         Request.query.filter(Request.status == 40)  # consider only "served" status

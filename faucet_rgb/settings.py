@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from logging.config import dictConfig
 
-from flask import Flask
+from flask import Config as FlaskConfig, Flask
 
 from .exceptions import ConfigurationError
 
@@ -208,7 +208,7 @@ def check_distribution(app: Flask, group_name: str, group_val: dict, errors: lis
         _check_distribution_random(app.config, dist_conf, errors, err_begin, err_end)
 
 
-def _check_distribution_random(cfg, dist_conf, errors, err_begin, err_end):
+def _check_distribution_random(cfg: FlaskConfig, dist_conf, errors, err_begin, err_end):
     dist_params = dist_conf.get("random_params")
     if not dist_params:
         errors.append(f"{err_begin} random params {err_end}")

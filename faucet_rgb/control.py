@@ -22,11 +22,13 @@ def assets():
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
 
-    online = current_app.config["ONLINE"]
-    wallet = current_app.config["WALLET"]
+    online: Online = current_app.config["ONLINE"]
+    wallet: Wallet = current_app.config["WALLET"]
     wallet.refresh(online, None, [], False)
     asset_list = wallet.list_assets([])
-    asset_dict = utils.get_asset_dict(asset_list.nia + asset_list.cfa)
+    assets_nia = asset_list.nia or []
+    assets_cfa = asset_list.cfa or []
+    asset_dict = utils.get_asset_dict(assets_nia + assets_cfa)
     return jsonify({"assets": asset_dict})
 
 
@@ -37,7 +39,7 @@ def delete_transfers():
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
 
-    wallet = current_app.config["WALLET"]
+    wallet: Wallet = current_app.config["WALLET"]
     res = wallet.delete_transfers(None, False)
     return jsonify({"result": res}), 200
 
@@ -49,8 +51,8 @@ def fail_transfers():
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
 
-    online = current_app.config["ONLINE"]
-    wallet = current_app.config["WALLET"]
+    online: Online = current_app.config["ONLINE"]
+    wallet: Wallet = current_app.config["WALLET"]
     res = wallet.fail_transfers(online, None, False, False)
     return jsonify({"result": res}), 200
 
@@ -89,14 +91,14 @@ def list_transfers():
 
 
 @bp.route("/refresh/<asset_id>", methods=["GET"])
-def refresh(asset_id):
+def refresh(asset_id: str):
     """Refresh asset transfers."""
     auth = request.headers.get("X-Api-Key")
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
 
-    online = current_app.config["ONLINE"]
-    wallet = current_app.config["WALLET"]
+    online: Online = current_app.config["ONLINE"]
+    wallet: Wallet = current_app.config["WALLET"]
     try:
         res = wallet.refresh(online, asset_id, [], False)
         result = {}
@@ -177,8 +179,8 @@ def unspents():
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
 
-    online = current_app.config["ONLINE"]
-    wallet = current_app.config["WALLET"]
+    online: Online = current_app.config["ONLINE"]
+    wallet: Wallet = current_app.config["WALLET"]
     unspent_list = get_unspent_list(wallet, online)
     return jsonify({"unspents": unspent_list})
 
@@ -186,7 +188,7 @@ def unspents():
 # helpers
 
 
-def _get_status_filter(status):
+def _get_status_filter(status: None | str):
     """
     Return the status filter list based on the query parameter,
     defaulting to pending ones.
@@ -198,7 +200,8 @@ def _get_status_filter(status):
         ], None
     if not hasattr(TransferStatus, status.upper()):
         return None, f"unknown status requested: {status}"
-    return [getattr(TransferStatus, status.upper())], None
+    requested_status: TransferStatus = getattr(TransferStatus, status.upper())
+    return [requested_status], None
 
 
 def _get_asset_ids(wallet: Wallet):

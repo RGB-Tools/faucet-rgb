@@ -4,12 +4,13 @@ import string
 from hashlib import sha256
 
 import rgb_lib
+from rgb_lib import Assignment, Online, Wallet
 
 from faucet_rgb.exceptions import ConfigurationError
 from faucet_rgb.settings import SUPPORTED_NETWORKS
 
 
-def supported_schemas_from_config(supported_schemas):
+def supported_schemas_from_config(supported_schemas: list[str]):
     """Convert supported schemas from configuration strings to rgb-lib enum variants."""
     try:
         ss_enum_vars = [rgb_lib.AssetSchema[s] for s in supported_schemas]
@@ -33,7 +34,7 @@ def wallet_data_from_config(cfg):
     }
 
 
-def amount_from_assignment(assignment: rgb_lib.Assignment):
+def amount_from_assignment(assignment: Assignment):
     """Return the amount corresponding to the given assignment."""
     if isinstance(assignment, rgb_lib.Assignment.FUNGIBLE):
         amount = assignment.amount
@@ -46,7 +47,7 @@ def amount_from_assignment(assignment: rgb_lib.Assignment):
     return amount
 
 
-def init_wallet(electrum_url, wallet_data):
+def init_wallet(electrum_url: str, wallet_data: dict):
     """Initialize the wallet."""
     print("Initializing wallet...")
     errors = []
@@ -89,7 +90,7 @@ def init_wallet(electrum_url, wallet_data):
     return online, wallet
 
 
-def get_unspent_list(wallet: rgb_lib.Wallet, online: rgb_lib.Online) -> list[rgb_lib.Unspent]:
+def get_unspent_list(wallet: Wallet, online: Online):
     """Return a dict of the available unspents."""
     unspents = wallet.list_unspents(online, False, False)
     unspent_list = []
@@ -118,7 +119,7 @@ def get_unspent_list(wallet: rgb_lib.Wallet, online: rgb_lib.Online) -> list[rgb
     return unspent_list
 
 
-def is_walletid_valid(wallet_id):
+def is_walletid_valid(wallet_id: str):
     """Return if the given wallet ID is valid or not."""
     is_valid = False
     # check it's a SHA256-looking string
@@ -128,6 +129,6 @@ def is_walletid_valid(wallet_id):
     return is_valid
 
 
-def get_sha256_hex(input_string):
+def get_sha256_hex(input_string: str):
     """Return the hex digest of the SHA256 for the given string."""
     return sha256(input_string.encode("utf-8")).hexdigest()

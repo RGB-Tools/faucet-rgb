@@ -4,9 +4,12 @@ import json
 import random
 from datetime import datetime
 from enum import Enum
+from logging import Logger
 
 import rgb_lib
-from flask import Blueprint, current_app, jsonify, request
+from rgb_lib import Invoice
+from flask import Blueprint, Config, current_app, jsonify, request
+from flask.wrappers import Request as FlaskRequest
 
 from faucet_rgb.settings import DistributionMode
 
@@ -35,7 +38,7 @@ REASON_MAP = {
 
 
 @bp.route("/config/<wallet_id>", methods=["GET"])
-def config(wallet_id):
+def config(wallet_id: str):
     """Return current faucet configuration.
 
     wallet_id must be a SHA256 hash
@@ -59,7 +62,7 @@ def config(wallet_id):
     Request.query.filter(Request.status == 10, Request.timestamp < time_thresh).delete()
     db.session.commit()  # pylint: disable=no-member
 
-    assets = current_app.config["ASSETS"]
+    assets: dict = current_app.config["ASSETS"]
     groups = {}
     for group_name, group_data in assets.items():
         (allowed, _reason) = _is_request_allowed(wallet_id, group_name)
@@ -90,8 +93,10 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     result = _receive_asset_checks(request, current_app.config)
     if result.get("error"):
         return jsonify({"error": result["error"]}), result["code"]
+    # if there's no error key, data and invoice should be defined
+    assert result["data"] and result["invoice"]
     data = result["data"]
-    invoice = result["invoice"]
+    invoice: Invoice = result["invoice"]
 
     # refuse witness requests if not allowed for network
     if current_app.config["NETWORK"] not in current_app.config[
@@ -118,6 +123,7 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     # check if request is allowed
     (allowed, reason) = _is_request_allowed(data["wallet_id"], asset_group)
     if not allowed:
+        assert reason  # should always be set if allowed = False
         return (
             jsonify(
                 {
@@ -143,7 +149,9 @@ def request_rgb_asset():  # pylint: disable=too-many-return-statements
     return _request_rgb_asset_core(data["wallet_id"], invoice, asset_group, asset, logger)
 
 
-def _request_rgb_asset_core(wallet_id, invoice, asset_group, asset, logger):
+def _request_rgb_asset_core(
+    wallet_id: str, invoice: Invoice, asset_group: str, asset: dict, logger: Logger
+):
     # add request to db so max requests check works right away (no double req)
     # pylint: disable=no-member
     recipient_id = invoice.invoice_data().recipient_id
@@ -206,7 +214,7 @@ def _request_rgb_asset_core(wallet_id, invoice, asset_group, asset, logger):
     )
 
 
-def _is_request_allowed(wallet_id, group_name):
+def _is_request_allowed(wallet_id: str, group_name: str):
     """Return if a request should be allowed or denied."""
     # deny request if user has already placed a request for this group
     reqs = Request.query.filter(
@@ -243,7 +251,7 @@ def _is_request_allowed(wallet_id, group_name):
     return (True, None)
 
 
-def _receive_asset_checks(req, cfg):
+def _receive_asset_checks(req: FlaskRequest, cfg: Config):
     # check auth
     auth = req.headers.get("X-Api-Key")
     if auth != cfg["API_KEY"]:
@@ -258,7 +266,7 @@ def _receive_asset_checks(req, cfg):
         return {"error": "invalid wallet ID", "code": 403}
     # parse invoice
     try:
-        invoice = rgb_lib.Invoice(data.get("invoice"))
+        invoice = Invoice(data.get("invoice"))
     except (rgb_lib.RgbLibError, TypeError):  # pylint: disable=catching-non-exception
         return {"error": "invalid invoice", "code": 403}
 

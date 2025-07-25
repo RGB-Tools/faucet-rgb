@@ -3,22 +3,23 @@
 import traceback
 
 import rgb_lib
+
 from flask import current_app
 from flask_apscheduler import APScheduler
+from rgb_lib import Unspent, Wallet
 
-from faucet_rgb.utils import (
+from .database import Request, db
+from .utils import (
     create_witness_utxos,
     get_logger,
     get_recipient,
     get_recipient_map_stats,
 )
 
-from .database import Request, db
-
 scheduler = APScheduler()
 
 
-def send_next_batch(spare_utxos):
+def send_next_batch(spare_utxos: list[Unspent]):
     """Send the next batch of queued requests.
 
     If the SINGLE_ASSET_SEND option is True, only send a single asset per
@@ -32,9 +33,12 @@ def send_next_batch(spare_utxos):
 
         # get requests to be processed
         pending_reqs = Request.query.filter_by(status=20)
+        if not pending_reqs:
+            return  # no requests to process
         if cfg["SINGLE_ASSET_SEND"]:
             # filter for asset ID of oldest request
             oldest_req = Request.query.filter_by(status=20).first()
+            assert oldest_req  # there should be at least 1 pending request at this point
             pending_reqs = Request.query.filter(
                 Request.status == 20, Request.asset_id == oldest_req.asset_id
             )
@@ -65,10 +69,11 @@ def send_next_batch(spare_utxos):
         _try_send(reqs, cfg, recipient_map, stats)
 
 
-def _try_send(reqs, cfg, recipient_map, stats):
+def _try_send(reqs: list[Request], cfg, recipient_map, stats):
     """Try to send."""
     with scheduler.app.app_context():
         logger = get_logger(__name__)
+        wallet: Wallet = cfg["WALLET"]
         try:
             # set request status to "processing"
             logger.info("sending batch donation")
@@ -77,7 +82,7 @@ def _try_send(reqs, cfg, recipient_map, stats):
             db.session.commit()  # pylint: disable=no-member
 
             # send assets
-            txid = cfg["WALLET"].send(
+            txid = wallet.send(
                 cfg["ONLINE"],
                 recipient_map,
                 True,

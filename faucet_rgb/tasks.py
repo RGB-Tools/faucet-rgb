@@ -2,15 +2,17 @@
 
 import contextlib
 import random
+
 from datetime import datetime
 
 import rgb_lib
-from flask import current_app
 
-from faucet_rgb.settings import DistributionMode
+from flask import current_app
+from rgb_lib import Wallet
 
 from .database import Request, db
 from .scheduler import scheduler, send_next_batch
+from .settings import DistributionMode
 from .utils import get_current_timestamp, get_logger, get_spare_utxos
 
 
@@ -29,10 +31,11 @@ def batch_donation():
         # get configuration variables
         logger = get_logger(__name__)
         cfg = current_app.config
+        wallet: Wallet = cfg["WALLET"]
 
         # refresh pending transfers
         try:
-            cfg["WALLET"].refresh(cfg["ONLINE"], None, [], False)
+            wallet.refresh(cfg["ONLINE"], None, [], False)
         except Exception as err:  # pylint: disable=broad-exception-caught
             logger.error("error refreshing transfers: %s", repr(err))
 
@@ -44,7 +47,7 @@ def batch_donation():
         spare_utxos = get_spare_utxos(cfg)
         if len(spare_utxos) < cfg["SPARE_UTXO_THRESH"]:
             with contextlib.suppress(rgb_lib.RgbLibError.AllocationsAlreadyAvailable):
-                created = cfg["WALLET"].create_utxos(
+                created = wallet.create_utxos(
                     cfg["ONLINE"],
                     True,
                     cfg["SPARE_UTXO_NUM"],

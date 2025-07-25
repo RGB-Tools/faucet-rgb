@@ -1,7 +1,9 @@
 """Faucet blueprint to top-up funds."""
 
-from flask import Blueprint, current_app, jsonify, request
 import rgb_lib
+
+from flask import Blueprint, current_app, jsonify, request
+from rgb_lib import Wallet
 
 bp = Blueprint("reserve", __name__, url_prefix="/reserve")
 
@@ -12,7 +14,7 @@ def top_up_btc():
     auth = request.headers.get("X-Api-Key")
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
-    wallet = current_app.config["WALLET"]
+    wallet: Wallet = current_app.config["WALLET"]
     new_addr = wallet.get_address()
     return jsonify({"address": new_addr})
 
@@ -23,7 +25,7 @@ def top_up_rgb():
     auth = request.headers.get("X-Api-Key")
     if auth != current_app.config["API_KEY_OPERATOR"]:
         return jsonify({"error": "unauthorized"}), 401
-    wallet = current_app.config["WALLET"]
+    wallet: Wallet = current_app.config["WALLET"]
     blind_data = wallet.blind_receive(
         None,
         rgb_lib.Assignment.ANY(),

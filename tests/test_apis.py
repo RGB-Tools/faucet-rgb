@@ -219,7 +219,7 @@ def test_control_refresh(get_app):
 def test_control_requests(get_app):  # pylint: disable=too-many-statements
     """Test /control/requests endpoint."""
     api = "/control/requests"
-    app = get_app()
+    app: Flask = get_app()
     client = app.test_client()
 
     # auth failure

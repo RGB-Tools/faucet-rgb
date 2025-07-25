@@ -8,7 +8,7 @@ class ConfigurationError(Exception):
     - errors: list of detected configuration errors
     """
 
-    def __init__(self, errors, message="configuration errors detected"):
+    def __init__(self, errors: list[str], message="configuration errors detected"):
         self.errors = errors
         self.message = message
         super().__init__(self.message)
