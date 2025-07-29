@@ -9,8 +9,9 @@ import rgb_lib
 
 from flask import current_app
 from rgb_lib import Wallet
+from sqlalchemy import select, update
 
-from .database import Request, db
+from .database import Request, count_query, db, select_query, update_query
 from .scheduler import scheduler, send_next_batch
 from .settings import DistributionMode
 from .utils import get_current_timestamp, get_logger, get_spare_utxos
@@ -40,8 +41,9 @@ def batch_donation():
             logger.error("error refreshing transfers: %s", repr(err))
 
         # reset status for requests left being processed to "pending"
-        Request.query.filter_by(status=30).update({"status": 20})
-        db.session.commit()  # pylint: disable=no-member
+        stmt = update_query(Request.status == 30).values(status=20)
+        db.session.execute(stmt)
+        db.session.commit()
 
         # make sure colorable UTXOs are available
         spare_utxos = get_spare_utxos(cfg)
@@ -60,18 +62,21 @@ def batch_donation():
         # checks
         request_thresh_reached = False
         enough_time_elapsed = False
-        pending_requests = Request.query.filter_by(status=20)
-        if pending_requests.count() and cfg["SINGLE_ASSET_SEND"]:
-            oldest_req = Request.query.filter_by(status=20).first()
-            pending_requests = Request.query.filter(
-                Request.status == 20, Request.asset_id == oldest_req.asset_id
+        pending_reqs_count = db.session.scalar(count_query(Request.status == 20))
+        stmt = select_query(Request.status == 20).limit(1)
+        oldest_req = db.session.scalars(stmt).first()
+        if pending_reqs_count and cfg["SINGLE_ASSET_SEND"]:
+            assert oldest_req  # pending_reqs_count is poisitive
+            pending_reqs_count = db.session.scalar(
+                count_query(Request.asset_id == oldest_req.asset_id)
             )
         # request count against configured threshold
-        if pending_requests.count() >= cfg["MIN_REQUESTS"]:
+        if pending_reqs_count >= cfg["MIN_REQUESTS"]:
             request_thresh_reached = True
         # elapsed time since oldest request
-        if pending_requests.count():
-            oldest_timestamp = pending_requests.first().timestamp
+        if pending_reqs_count:
+            assert oldest_req  # pending_reqs_count is poisitive
+            oldest_timestamp = oldest_req.timestamp
             if get_current_timestamp() - oldest_timestamp >= cfg["MAX_WAIT_MINUTES"] * 60:
                 enough_time_elapsed = True
 
@@ -107,24 +112,27 @@ def random_distribution():
             for asset in val["assets"]:
                 asset_id = asset["asset_id"]
                 # get waiting requests for asset
-                reqs = Request.query.filter_by(asset_id=asset_id, status=25).all()
+                stmt = select_query(Request.asset_id == asset_id, Request.status == 25)
+                reqs = list(db.session.scalars(stmt).all())
                 # get asset future balance (what we expect to be able to send)
                 balance = cfg["WALLET"].get_asset_balance(asset_id).future
                 count = 0
                 # choose random requests and set them to pending status
                 while balance > 0 and reqs:
                     req = random.choice(reqs)
-                    Request.query.filter_by(idx=req.idx).update({"status": 20})
-                    db.session.commit()  # pylint: disable=no-member
+                    stmt = update_query(Request.idx == req.idx).values(status=20)
+                    db.session.execute(stmt)
+                    db.session.commit()
                     reqs.remove(req)
                     balance -= 1
                     count += 1
                 if count > 0:
                     logger.info("set %s requests as pending for asset %s", count, asset_id)
-                # set remaining requests to unmet status
-                reqs_unmet = Request.query.filter_by(asset_id=asset_id, status=25).update(
-                    {"status": 45}
+                stmt = (
+                    update_query(Request.asset_id == asset_id, Request.status == 25)
+                    .values(status=45)
                 )
+                reqs_unmet = db.session.execute(stmt).rowcount
+                db.session.commit()
                 if reqs_unmet > 0:
                     logger.info("set %s requests as unmet for asset %s", reqs_unmet, asset_id)
-                db.session.commit()  # pylint: disable=no-member

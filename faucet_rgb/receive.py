@@ -10,10 +10,11 @@ import rgb_lib
 from rgb_lib import Invoice
 from flask import Blueprint, Config, current_app, jsonify, request
 from flask.wrappers import Request as FlaskRequest
+from sqlalchemy import delete, select, update
 
 from faucet_rgb.settings import DistributionMode
 
-from .database import Request, db
+from .database import Request, count_query, db, select_query, update_query
 from .utils import get_current_timestamp, get_logger, get_rgb_asset, is_blinded_utxo
 from .utils.wallet import is_walletid_valid
 
@@ -59,8 +60,9 @@ def config(wallet_id: str):
 
     # drop requests in status "new" which are older than a couple minutes
     time_thresh = get_current_timestamp() - 120
-    Request.query.filter(Request.status == 10, Request.timestamp < time_thresh).delete()
-    db.session.commit()  # pylint: disable=no-member
+    stmt = delete(Request).where(Request.status == 10, Request.timestamp < time_thresh)
+    db.session.execute(stmt)
+    db.session.commit()
 
     assets: dict = current_app.config["ASSETS"]
     groups = {}
@@ -157,14 +159,15 @@ def _request_rgb_asset_core(
     recipient_id = invoice.invoice_data().recipient_id
     invoice_str = invoice.invoice_string()
     db.session.add(Request(wallet_id, recipient_id, invoice_str, asset_group, None, None))
-    req = Request.query.filter(
+    stmt = select_query(
         Request.wallet_id == wallet_id,
         Request.invoice == invoice_str,
         Request.asset_group == asset_group,
         Request.status == 10,
     )
-    assert req.count() == 1
-    req_idx = req.first().idx
+    req = db.session.scalars(stmt).all()
+    assert len(req) == 1
+    req_idx = req[0].idx
     db.session.commit()
     # pylint: enable=no-member
 
@@ -200,9 +203,11 @@ def _request_rgb_asset_core(
         asset["amount"],
         new_status,
     )
-    Request.query.filter_by(idx=req_idx).update(
-        {"status": new_status, "asset_id": asset["asset_id"], "amount": asset["amount"]}
+    stmt = (
+        update_query(Request.idx == req_idx)
+        .values(status=new_status, asset_id=asset["asset_id"], amount=asset["amount"])
     )
+    db.session.execute(stmt)
     db.session.commit()
     # pylint: enable=no-member
 
@@ -217,10 +222,8 @@ def _request_rgb_asset_core(
 def _is_request_allowed(wallet_id: str, group_name: str):
     """Return if a request should be allowed or denied."""
     # deny request if user has already placed a request for this group
-    reqs = Request.query.filter(
-        Request.wallet_id == wallet_id, Request.asset_group == group_name
-    ).count()
-    if reqs:
+    reqs_count = db.session.scalar(count_query(Request.wallet_id == wallet_id, Request.asset_group == group_name))
+    if reqs_count:
         return (False, DenyReason.ALREADY_REQUESTED)
 
     # deny based on distribution mode

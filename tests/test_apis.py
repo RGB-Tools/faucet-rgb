@@ -3,12 +3,16 @@
 import random
 import time
 import uuid
+
 from datetime import datetime, timedelta
 
-from flask.app import Flask
 import rgb_lib
 
-from faucet_rgb import Request, scheduler
+from flask.app import Flask
+from sqlalchemy import select
+
+from faucet_rgb.database import Request, db, select_query
+from faucet_rgb.scheduler import scheduler
 from faucet_rgb.settings import DistributionMode
 from faucet_rgb.utils.wallet import get_sha256_hex
 from tests.utils import (
@@ -194,7 +198,7 @@ def test_control_refresh(get_app):
     user = prepare_user_wallets(app, 1)[0]
     check_receive_asset(app, user, None, 200)
     with app.app_context():
-        request = Request.query.one()
+        request = db.session.scalars(select_query()).one()
     asset_id = request.asset_id
     wait_sched_process_pending(app)
     resp = client.get(
@@ -257,7 +261,7 @@ def test_control_requests(get_app):  # pylint: disable=too-many-statements
     add_fake_request(app, users[0], "group_1", 40, amount=3, asset_id=uuid.uuid4().hex)
 
     with app.app_context():
-        all_reqs = Request.query.all()
+        all_reqs = db.session.scalars(select_query()).all()
 
     # requests in status 20 (default)
     resp_default = client.get(
@@ -525,7 +529,7 @@ def test_receive_asset(get_app):
     assert resp.json
     asset = resp.json["asset"]
     with app.app_context():
-        request = Request.query.one()
+        request = db.session.scalars(select_query()).one()
     assert request.status == 20
     asset_id = request.asset_id
     assert asset["asset_id"] == asset_id
@@ -541,7 +545,8 @@ def test_receive_asset(get_app):
     generate(1)
     wait_refresh(app.config["WALLET"], app.config["ONLINE"])
     with app.app_context():
-        request = Request.query.filter_by(idx=request.idx).one()
+        stmt = select_query(Request.idx == request.idx)
+        request = db.session.scalars(stmt).one()
     assert request.status == 40
 
     # request from an inexistent asset_group
@@ -576,7 +581,8 @@ def test_receive_asset_witness(get_app):
     resp = receive_asset(client, user["xpub"], invoice)
     assert resp.status_code == 200
     with app.app_context():
-        request = Request.query.filter_by(invoice=invoice).one()
+        stmt = select_query(Request.invoice == invoice)
+        request = db.session.scalars(stmt).one()
     assert request.status == 20
     assert request.recipient_id == rgb_lib.Invoice(invoice).invoice_data().recipient_id
     wait_sched_process_pending(app)

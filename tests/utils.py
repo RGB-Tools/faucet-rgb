@@ -6,15 +6,17 @@ import shutil
 import socket
 import subprocess
 import time
+
 from datetime import datetime
 from urllib import parse
 
 import rgb_lib
+
 from flask import Flask
 from flask_apscheduler import STATE_RUNNING
 
 from faucet_rgb import create_app, scheduler
-from faucet_rgb.database import Request, db
+from faucet_rgb.database import Request, count_query, db, select_query, update_query
 from faucet_rgb.settings import Config
 from faucet_rgb.utils.wallet import (
     get_sha256_hex,
@@ -243,19 +245,17 @@ def add_fake_request(
                 amount,
             )
         )
-        req = Request.query.filter(
+        stmt_filter = (
             Request.wallet_id == wallet_id,
             Request.invoice == invoice,
             Request.asset_group == asset_group,
             Request.status == 10,
         )
-        assert req.count() == 1
-        req_idx = req.first().idx
-        Request.query.filter_by(idx=req_idx).update(
-            {
-                "status": status,
-            }
-        )
+        count_stmt = count_query(*stmt_filter)
+        assert db.session.scalar(count_stmt) == 1
+        req = db.session.scalars(select_query(*stmt_filter)).one()
+        stmt = update_query(Request.idx == req.idx).values(status=status)
+        db.session.execute(stmt)
         db.session.commit()
 
 
@@ -508,10 +508,10 @@ def wait_sched_process_pending(app):
         deadline = time.time() + 30
         while True:
             time.sleep(2)
-            pending_requests = Request.query.filter(Request.status == 20)
-            if not pending_requests.count():
+            pending_reqs_count = db.session.scalar(count_query(Request.status == 20))
+            if not pending_reqs_count:
                 break
-            print("pending requests:", pending_requests.count())
+            print("pending requests:", pending_reqs_count)
             if time.time() > deadline:
                 raise RuntimeError("pending requests not getting served")
             generate(1)
@@ -526,10 +526,10 @@ def wait_sched_process_waiting(app):
         deadline = time.time() + 30
         while True:
             time.sleep(2)
-            waiting_requests = Request.query.filter(Request.status == 25)
-            if not waiting_requests.count():
+            waiting_reqs_count = db.session.scalar(count_query(Request.status == 25))
+            if not waiting_reqs_count:
                 break
-            print("waiting requests:", waiting_requests.count())
+            print("waiting requests:", waiting_reqs_count)
             if time.time() > deadline:
                 raise RuntimeError("waiting requests not getting processed")
     print("processed WAITING requests")

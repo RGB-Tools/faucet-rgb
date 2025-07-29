@@ -3,11 +3,12 @@
 import rgb_lib
 from flask import Blueprint, current_app, jsonify, request
 from rgb_lib import Online, Transfer, TransferStatus, Wallet
+from sqlalchemy import select
 
 from faucet_rgb import utils
 from faucet_rgb.utils.wallet import amount_from_assignment, get_unspent_list
 
-from .database import Request
+from .database import Request, db, select_query
 
 bp = Blueprint("control", __name__, url_prefix="/control")
 
@@ -141,20 +142,20 @@ def list_requests():
     if all(a is None for a in [asset_group, asset_id, recipient_id, status, wallet_id]):
         status = 20
 
-    reqs = Request.query
+    stmt = select_query()
     if asset_group:
-        reqs = reqs.filter_by(asset_group=asset_group)
+        stmt = stmt.where(Request.asset_group == asset_group)
     if asset_id:
-        reqs = reqs.filter_by(asset_id=asset_id)
+        stmt = stmt.where(Request.asset_id == asset_id)
     if recipient_id:
-        reqs = reqs.filter_by(recipient_id=recipient_id)
+        stmt = stmt.where(Request.recipient_id == recipient_id)
     if status:
-        reqs = reqs.filter_by(status=status)
+        stmt = stmt.where(Request.status == status)
     if wallet_id:
-        reqs = reqs.filter_by(wallet_id=wallet_id)
+        stmt = stmt.where(Request.wallet_id == wallet_id)
 
     requests = []
-    for req in reqs.order_by(Request.idx.desc()).slice(0, 100).all():
+    for req in db.session.scalars(stmt.order_by(Request.idx.desc()).limit(100)):
         requests.append(
             {
                 "idx": req.idx,

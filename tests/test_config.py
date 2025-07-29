@@ -1,8 +1,10 @@
 """Tests for APIs."""
 
 from datetime import datetime, timedelta
+from sqlalchemy import func, select
 
-from faucet_rgb import Request, exceptions
+from faucet_rgb import exceptions
+from faucet_rgb.database import Request, count_query, db, select_query
 from tests.utils import (
     check_receive_asset,
     prepare_assets,
@@ -97,9 +99,9 @@ def test_0_conf(get_app):
     user = prepare_user_wallets(app, 1)[0]
     check_receive_asset(app, user, None, 200)
     with app.app_context():
-        requests = Request.query
-        assert requests.count() == 1
-        request = requests.one()
+        request_count = db.session.scalar(count_query())
+        assert request_count == 1
+        request = db.session.scalars(select_query()).one()
     asset_id = request.asset_id
     wait_sched_process_pending(app)
     # check send transfer is settled after one refresh (no mining)

@@ -1,9 +1,10 @@
 """Tests for random distribution mode."""
 
 import time
+
 from datetime import datetime, timedelta
 
-from faucet_rgb import Request
+from faucet_rgb.database import Request, count_query, db
 from faucet_rgb.receive import REASON_MAP
 from faucet_rgb.settings import DistributionMode
 from faucet_rgb.utils.wallet import get_sha256_hex
@@ -128,9 +129,14 @@ def test_random_single_asset(get_app):
         assert resp.status_code == 200
     assert resp.json["distribution"]["mode"] == DistributionMode.RANDOM.value
 
+    count_stmt = count_query()
+
     # check requests are in waiting status (while window is still open)
     with app.app_context():
-        assert Request.query.filter_by(status=25).count() == asset_balance + extra_requests
+        assert (
+            db.session.scalar(count_stmt.where(Request.status == 25))
+            == asset_balance + extra_requests
+        )
 
     # wait for window close
     print("waiting for random request window to close...")
@@ -159,9 +165,9 @@ def test_random_single_asset(get_app):
     # check requests have been moved to served or unmet status
     with app.app_context():
         # <asset_balance> requests expected in status served
-        assert Request.query.filter_by(status=40).count() == asset_balance
+        assert db.session.scalar(count_stmt.where(Request.status == 40)) == asset_balance
         # <extra_requests> requests expected in status unmet (not selected)
-        assert Request.query.filter_by(status=45).count() == extra_requests
+        assert db.session.scalar(count_stmt.where(Request.status == 45)) == extra_requests
 
     # check 1 asset has been received by the user of each chosen request
     result = {
@@ -214,9 +220,11 @@ def test_random_multiple_assets(get_app):  # pylint: disable=too-many-locals
         resp = receive_asset(client, user["xpub"], create_and_blind(app.config, user))
         assert resp.status_code == 200
 
+    count_stmt = count_query()
+
     # check requests are in waiting status (while window is still open)
     with app.app_context():
-        assert Request.query.filter_by(status=25).count() == request_num
+        assert db.session.scalar(count_stmt.where(Request.status == 25)) == request_num
 
     # wait for window close
     print("waiting for random request window to close...")
@@ -235,8 +243,8 @@ def test_random_multiple_assets(get_app):  # pylint: disable=too-many-locals
             time.sleep(2)
             # <asset_balance> * 2 requests expected in status served
             # <extra_requests> * 2 requests expected in status unmet (not selected)
-            served = Request.query.filter_by(status=40).count()
-            unmet = Request.query.filter_by(status=45).count()
+            served = db.session.scalar(count_stmt.where(Request.status == 40))
+            unmet = db.session.scalar(count_stmt.where(Request.status == 45))
             if served == asset_balance * 2 and unmet == extra_requests * 2:
                 break
             if time.time() > deadline:

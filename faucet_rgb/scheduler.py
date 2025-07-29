@@ -1,14 +1,16 @@
 """Scheduler module."""
 
 import traceback
+from typing import Sequence
 
 import rgb_lib
 
 from flask import current_app
 from flask_apscheduler import APScheduler
+from sqlalchemy import select, update
 from rgb_lib import Unspent, Wallet
 
-from .database import Request, db
+from .database import Request, db, select_query, update_query
 from .utils import (
     create_witness_utxos,
     get_logger,
@@ -32,27 +34,28 @@ def send_next_batch(spare_utxos: list[Unspent]):
         cfg = current_app.config
 
         # get requests to be processed
-        pending_reqs = Request.query.filter_by(status=20)
+        stmt = select_query(Request.status == 20)
+        pending_reqs = db.session.scalars(stmt).all()
         if not pending_reqs:
+            print("no pending reqs")
             return  # no requests to process
         if cfg["SINGLE_ASSET_SEND"]:
             # filter for asset ID of oldest request
-            oldest_req = Request.query.filter_by(status=20).first()
-            assert oldest_req  # there should be at least 1 pending request at this point
-            pending_reqs = Request.query.filter(
+            oldest_req = pending_reqs[0]
+            stmt = select_query(
                 Request.status == 20, Request.asset_id == oldest_req.asset_id
             )
-        reqs = pending_reqs.all()
+            pending_reqs = db.session.scalars(stmt).all()
 
         # get asset set
-        asset_id_set = {r.asset_id for r in reqs}
+        asset_id_set = {r.asset_id for r in pending_reqs}
 
         # prepare recipient map
         recipient_map = {}
         for asset_id in asset_id_set:
             # get list of recipients that need to receive this asset
             recipient_list = []
-            for req in reqs:
+            for req in pending_reqs:
                 if req.asset_id == asset_id:
                     recipient = get_recipient(req.invoice, req.amount, cfg)
                     recipient_list.append(recipient)
@@ -66,10 +69,10 @@ def send_next_batch(spare_utxos: list[Unspent]):
         logger.info("%s additional UTXOs created", created)
 
         # try sending
-        _try_send(reqs, cfg, recipient_map, stats)
+        _try_send(pending_reqs, cfg, recipient_map, stats)
 
 
-def _try_send(reqs: list[Request], cfg, recipient_map, stats):
+def _try_send(reqs: Sequence[Request], cfg, recipient_map, stats):
     """Try to send."""
     with scheduler.app.app_context():
         logger = get_logger(__name__)
@@ -77,9 +80,10 @@ def _try_send(reqs: list[Request], cfg, recipient_map, stats):
         try:
             # set request status to "processing"
             logger.info("sending batch donation")
-            for req in reqs:
-                Request.query.filter_by(idx=req.idx).update({"status": 30})
-            db.session.commit()  # pylint: disable=no-member
+            idxs = [req.idx for req in reqs]
+            stmt = update_query(Request.idx.in_(idxs)).values(status=30)
+            db.session.execute(stmt)
+            db.session.commit()
 
             # send assets
             txid = wallet.send(
@@ -100,8 +104,9 @@ def _try_send(reqs: list[Request], cfg, recipient_map, stats):
 
             # update status for served requests
             for req in reqs:
-                Request.query.filter_by(idx=req.idx).update({"status": 40})
-            db.session.commit()  # pylint: disable=no-member
+                stmt = update_query(Request.idx == req.idx).values(status=40)
+                db.session.execute(stmt)
+            db.session.commit()
         except rgb_lib.RgbLibError.InsufficientAllocationSlots:
             logger.error("Failed to send: not enough allocation slots")
         except rgb_lib.RgbLibError.InsufficientAssignments:

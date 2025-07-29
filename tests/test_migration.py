@@ -9,7 +9,9 @@ import time
 
 import pytest
 
-from faucet_rgb import Request
+from sqlalchemy import select
+
+from faucet_rgb.database import Request, count_query, db, select_query
 from faucet_rgb.scheduler import scheduler
 from faucet_rgb.utils import get_logger
 from tests.utils import (
@@ -100,8 +102,8 @@ def _assure_no_pending_request(app):
                 "set request status to 40 (served) for all requests"
             )
         with app.app_context():
-            pending_request = Request.query.filter(Request.status != 40).count()
-            if not pending_request:
+            pending_requests = db.session.scalar(count_query(Request.status == 40))
+            if not pending_requests:
                 logger.info("all requests served")
                 break
         time.sleep(3)
@@ -170,9 +172,8 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
 
     # check user 3 pending request is updated with the new (migrated) asset id
     with app.app_context():
-        user3_requests = Request.query.filter(
-            Request.wallet_id == users[3]["xpub"], Request.status != 40
-        ).all()
+        stmt = select_query(Request.wallet_id == users[3]["xpub"], Request.status != 40)
+        user3_requests = db.session.scalars(stmt).all()
         assert len(user3_requests) == 1, "must have only one pending request"
         req = user3_requests[0]
         assert req.asset_id in new_group_1_asset_ids, "must migrate to new asset on startup"

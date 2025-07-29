@@ -2,8 +2,10 @@
 
 import time
 
+from sqlalchemy import func, select
+
 from faucet_rgb import scheduler
-from faucet_rgb.database import Request
+from faucet_rgb.database import Request, count_query, db, select_query
 from faucet_rgb.scheduler import send_next_batch
 from faucet_rgb.utils import get_spare_available, get_spare_utxos
 from faucet_rgb.utils.wallet import get_sha256_hex
@@ -111,8 +113,9 @@ def test_create_witness_utxos(get_app):
 
     # wait for all requets to have been served
     with app.app_context():
-        request_num = Request.query.count()
-        while Request.query.filter_by(status=40).count() != request_num:
+        count_stmt = count_query(Request.status == 40)
+        request_num = db.session.scalar(count_stmt)
+        while db.session.scalar(count_stmt) != request_num:
             time.sleep(2)
 
 
@@ -139,14 +142,17 @@ def test_single_asset_false(get_app):
         )
         assert resp.status_code == 200
 
+    count_stmt = count_query()
+    stmt = select_query()
+
     with app.app_context():
-        assert Request.query.count() == 2
-        assert all(r.status == 20 for r in Request.query.all())
+        assert db.session.scalar(count_stmt) == 2
+        assert all(r.status == 20 for r in db.session.scalars(stmt).all())
 
     # manually trigger the sending function once
     send_next_batch(get_spare_utxos(app.config))
 
     # check both assets have been sent (in a single batch)
     with app.app_context():
-        assert Request.query.count() == 2
-        assert all(r.status == 40 for r in Request.query.all())
+        assert db.session.scalar(count_stmt) == 2
+        assert all(r.status == 40 for r in db.session.scalars(stmt).all())
