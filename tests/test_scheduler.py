@@ -2,8 +2,6 @@
 
 import time
 
-from sqlalchemy import func, select
-
 from faucet_rgb import scheduler
 from faucet_rgb.database import Request, count_query, db, select_query
 from faucet_rgb.scheduler import send_next_batch
@@ -142,17 +140,14 @@ def test_single_asset_false(get_app):
         )
         assert resp.status_code == 200
 
-    count_stmt = count_query()
-    stmt = select_query()
-
     with app.app_context():
-        assert db.session.scalar(count_stmt) == 2
-        assert all(r.status == 20 for r in db.session.scalars(stmt).all())
+        assert db.session.scalar(count_query()) == 2
+        assert all(r.status == 20 for r in db.session.scalars(select_query()).all())
 
     # manually trigger the sending function once
     send_next_batch(get_spare_utxos(app.config))
 
     # check both assets have been sent (in a single batch)
     with app.app_context():
-        assert db.session.scalar(count_stmt) == 2
-        assert all(r.status == 40 for r in db.session.scalars(stmt).all())
+        assert db.session.scalar(count_query()) == 2
+        assert all(r.status == 40 for r in db.session.scalars(select_query()).all())

@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 import rgb_lib
 
 from flask.app import Flask
-from sqlalchemy import select
 
 from faucet_rgb.database import Request, db, select_query
 from faucet_rgb.scheduler import scheduler
@@ -545,8 +544,7 @@ def test_receive_asset(get_app):
     generate(1)
     wait_refresh(app.config["WALLET"], app.config["ONLINE"])
     with app.app_context():
-        stmt = select_query(Request.idx == request.idx)
-        request = db.session.scalars(stmt).one()
+        request = db.session.scalars(select_query(Request.idx == request.idx)).one()
     assert request.status == 40
 
     # request from an inexistent asset_group
@@ -581,8 +579,7 @@ def test_receive_asset_witness(get_app):
     resp = receive_asset(client, user["xpub"], invoice)
     assert resp.status_code == 200
     with app.app_context():
-        stmt = select_query(Request.invoice == invoice)
-        request = db.session.scalars(stmt).one()
+        request = db.session.scalars(select_query(Request.invoice == invoice)).one()
     assert request.status == 20
     assert request.recipient_id == rgb_lib.Invoice(invoice).invoice_data().recipient_id
     wait_sched_process_pending(app)

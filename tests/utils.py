@@ -251,11 +251,9 @@ def add_fake_request(
             Request.asset_group == asset_group,
             Request.status == 10,
         )
-        count_stmt = count_query(*stmt_filter)
-        assert db.session.scalar(count_stmt) == 1
+        assert db.session.scalar(count_query(*stmt_filter)) == 1
         req = db.session.scalars(select_query(*stmt_filter)).one()
-        stmt = update_query(Request.idx == req.idx).values(status=status)
-        db.session.execute(stmt)
+        db.session.execute(update_query(Request.idx == req.idx).values(status=status))
         db.session.commit()
 
 

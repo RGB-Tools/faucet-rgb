@@ -1,10 +1,9 @@
 """Tests for APIs."""
 
 from datetime import datetime, timedelta
-from sqlalchemy import func, select
 
 from faucet_rgb import exceptions
-from faucet_rgb.database import Request, count_query, db, select_query
+from faucet_rgb.database import count_query, db, select_query
 from tests.utils import (
     check_receive_asset,
     prepare_assets,

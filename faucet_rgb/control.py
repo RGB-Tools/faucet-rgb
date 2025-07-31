@@ -3,7 +3,6 @@
 import rgb_lib
 from flask import Blueprint, current_app, jsonify, request
 from rgb_lib import Online, Transfer, TransferStatus, Wallet
-from sqlalchemy import select
 
 from faucet_rgb import utils
 from faucet_rgb.utils.wallet import amount_from_assignment, get_unspent_list

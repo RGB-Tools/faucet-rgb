@@ -9,7 +9,6 @@ import rgb_lib
 
 from flask import current_app
 from rgb_lib import Wallet
-from sqlalchemy import select, update
 
 from .database import Request, count_query, db, select_query, update_query
 from .scheduler import scheduler, send_next_batch
@@ -41,8 +40,7 @@ def batch_donation():
             logger.error("error refreshing transfers: %s", repr(err))
 
         # reset status for requests left being processed to "pending"
-        stmt = update_query(Request.status == 30).values(status=20)
-        db.session.execute(stmt)
+        db.session.execute(update_query(Request.status == 30).values(status=20))
         db.session.commit()
 
         # make sure colorable UTXOs are available
@@ -63,8 +61,7 @@ def batch_donation():
         request_thresh_reached = False
         enough_time_elapsed = False
         pending_reqs_count = db.session.scalar(count_query(Request.status == 20))
-        stmt = select_query(Request.status == 20).limit(1)
-        oldest_req = db.session.scalars(stmt).first()
+        oldest_req = db.session.scalars(select_query(Request.status == 20).limit(1)).first()
         if pending_reqs_count and cfg["SINGLE_ASSET_SEND"]:
             assert oldest_req  # pending_reqs_count is poisitive
             pending_reqs_count = db.session.scalar(
@@ -112,27 +109,29 @@ def random_distribution():
             for asset in val["assets"]:
                 asset_id = asset["asset_id"]
                 # get waiting requests for asset
-                stmt = select_query(Request.asset_id == asset_id, Request.status == 25)
-                reqs = list(db.session.scalars(stmt).all())
+                reqs = list(
+                    db.session.scalars(
+                        select_query(Request.asset_id == asset_id, Request.status == 25)
+                    ).all()
+                )
                 # get asset future balance (what we expect to be able to send)
                 balance = cfg["WALLET"].get_asset_balance(asset_id).future
                 count = 0
                 # choose random requests and set them to pending status
                 while balance > 0 and reqs:
                     req = random.choice(reqs)
-                    stmt = update_query(Request.idx == req.idx).values(status=20)
-                    db.session.execute(stmt)
+                    db.session.execute(update_query(Request.idx == req.idx).values(status=20))
                     db.session.commit()
                     reqs.remove(req)
                     balance -= 1
                     count += 1
                 if count > 0:
                     logger.info("set %s requests as pending for asset %s", count, asset_id)
-                stmt = (
-                    update_query(Request.asset_id == asset_id, Request.status == 25)
-                    .values(status=45)
-                )
-                reqs_unmet = db.session.execute(stmt).rowcount
+                reqs_unmet = db.session.execute(
+                    update_query(Request.asset_id == asset_id, Request.status == 25).values(
+                        status=45
+                    )
+                ).rowcount
                 db.session.commit()
                 if reqs_unmet > 0:
                     logger.info("set %s requests as unmet for asset %s", reqs_unmet, asset_id)

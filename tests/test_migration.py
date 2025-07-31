@@ -7,13 +7,8 @@ import os
 import shutil
 import time
 
-import pytest
-
-from sqlalchemy import select
-
-from faucet_rgb.database import Request, count_query, db, select_query
+from faucet_rgb.database import Request, db, select_query
 from faucet_rgb.scheduler import scheduler
-from faucet_rgb.utils import get_logger
 from tests.utils import (
     add_fake_request,
     check_receive_asset,
@@ -73,40 +68,6 @@ def _get_app_preparation_2(old_asset_config):
         return app
 
     return _app_preparation_2
-
-
-def _assure_no_pending_request(app):
-    """Wait until all requests are served.
-
-    Wait for max 60 seconds for the background scheduler to run and set all
-    request statuses to 40 (served).
-    """
-    logger = get_logger(__name__)
-    logger.info("waiting for requests to be served...")
-    retry = 0
-    max_retry = 20
-    app.config["WALLET"].create_utxos(
-        app.config["ONLINE"],
-        True,
-        None,
-        app.config["UTXO_SIZE"],
-        app.config["FEE_RATE"],
-        False,
-    )
-    while True:
-        retry = retry + 1
-        # abort the test after 60 seconds
-        if retry >= max_retry:
-            pytest.fail(
-                "Test failed! Background scheduler did not "
-                "set request status to 40 (served) for all requests"
-            )
-        with app.app_context():
-            pending_requests = db.session.scalar(count_query(Request.status == 40))
-            if not pending_requests:
-                logger.info("all requests served")
-                break
-        time.sleep(3)
 
 
 def test_migration(get_app):  # pylint: disable=too-many-statements
@@ -172,8 +133,9 @@ def test_migration(get_app):  # pylint: disable=too-many-statements
 
     # check user 3 pending request is updated with the new (migrated) asset id
     with app.app_context():
-        stmt = select_query(Request.wallet_id == users[3]["xpub"], Request.status != 40)
-        user3_requests = db.session.scalars(stmt).all()
+        user3_requests = db.session.scalars(
+            select_query(Request.wallet_id == users[3]["xpub"], Request.status != 40)
+        ).all()
         assert len(user3_requests) == 1, "must have only one pending request"
         req = user3_requests[0]
         assert req.asset_id in new_group_1_asset_ids, "must migrate to new asset on startup"

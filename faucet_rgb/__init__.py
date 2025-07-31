@@ -8,7 +8,6 @@ from flask import Flask, g, request
 from flask_apscheduler import STATE_STOPPED
 from flask_migrate import upgrade
 from rgb_lib import Assets, Wallet
-from sqlalchemy import and_, select
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import control, receive, reserve, tasks
@@ -110,11 +109,7 @@ def _get_group_and_asset_from_id(app: Flask, asset_id: str):
 
 def _get_all_requests_waiting_for_migration(rev_mig_map: dict[str, str]):
     """Gather all requests which haven't completed migration."""
-    stmt = (
-        select_query(Request.status == 40)  # consider only "served" status
-        .order_by(Request.wallet_id)
-    )
-    reqs = db.session.scalars(stmt).all()
+    reqs = db.session.scalars(select_query(Request.status == 40).order_by(Request.wallet_id)).all()
     reqs_waiting_for_migration = []
     for _, same_wallet_requests in itertools.groupby(reqs, lambda r: r.wallet_id):
         it1, it2 = itertools.tee(same_wallet_requests, 2)
@@ -179,10 +174,9 @@ def _create_user_migration_cache(app: Flask):
         app.config["ASSET_MIGRATION_CACHE"] = mig_cache
 
         # update pending requests for old assets
-        stmt = select_query(
-           Request.status != 40, Request.asset_id.in_(rev_mig_map.keys()) 
-        )
-        for req in db.session.scalars(stmt).all():
+        for req in db.session.scalars(
+            select_query(Request.status != 40, Request.asset_id.in_(rev_mig_map.keys()))
+        ).all():
             # if there is a pending request for an old asset,
             # update it with the new asset_id
             req.asset_id = rev_mig_map[req.asset_id]

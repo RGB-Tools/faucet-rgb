@@ -7,7 +7,6 @@ import rgb_lib
 
 from flask import current_app
 from flask_apscheduler import APScheduler
-from sqlalchemy import select, update
 from rgb_lib import Unspent, Wallet
 
 from .database import Request, db, select_query, update_query
@@ -42,9 +41,7 @@ def send_next_batch(spare_utxos: list[Unspent]):
         if cfg["SINGLE_ASSET_SEND"]:
             # filter for asset ID of oldest request
             oldest_req = pending_reqs[0]
-            stmt = select_query(
-                Request.status == 20, Request.asset_id == oldest_req.asset_id
-            )
+            stmt = stmt.where(Request.asset_id == oldest_req.asset_id)
             pending_reqs = db.session.scalars(stmt).all()
 
         # get asset set
@@ -81,8 +78,7 @@ def _try_send(reqs: Sequence[Request], cfg, recipient_map, stats):
             # set request status to "processing"
             logger.info("sending batch donation")
             idxs = [req.idx for req in reqs]
-            stmt = update_query(Request.idx.in_(idxs)).values(status=30)
-            db.session.execute(stmt)
+            db.session.execute(update_query(Request.idx.in_(idxs)).values(status=30))
             db.session.commit()
 
             # send assets
@@ -104,8 +100,7 @@ def _try_send(reqs: Sequence[Request], cfg, recipient_map, stats):
 
             # update status for served requests
             for req in reqs:
-                stmt = update_query(Request.idx == req.idx).values(status=40)
-                db.session.execute(stmt)
+                db.session.execute(update_query(Request.idx == req.idx).values(status=40))
             db.session.commit()
         except rgb_lib.RgbLibError.InsufficientAllocationSlots:
             logger.error("Failed to send: not enough allocation slots")
