@@ -11,7 +11,7 @@ from flask import current_app
 from rgb_lib import Wallet
 
 from .database import Request, count_query, db, select_query, update_query
-from .scheduler import scheduler, send_next_batch
+from .scheduler import get_app, send_next_batch
 from .settings import DistributionMode
 from .utils import get_current_timestamp, get_logger, get_spare_utxos
 
@@ -27,7 +27,7 @@ def batch_donation():
     If the SINGLE_ASSET_SEND option is True, only consider a single asset. See
     the send_next_batch function for details.
     """
-    with scheduler.app.app_context():
+    with get_app().app_context():
         # get configuration variables
         logger = get_logger(__name__)
         cfg = current_app.config
@@ -89,7 +89,7 @@ def random_distribution():
     - choose random requests from received ones and set them as pending
     - set remaining requests as unmet
     """
-    with scheduler.app.app_context():
+    with get_app().app_context():
         # get configuration variables
         logger = get_logger(__name__)
         cfg = current_app.config
@@ -127,11 +127,12 @@ def random_distribution():
                     count += 1
                 if count > 0:
                     logger.info("set %s requests as pending for asset %s", count, asset_id)
+                # note: update statements return a CursorResult that have a rowcount
                 reqs_unmet = db.session.execute(
                     update_query(Request.asset_id == asset_id, Request.status == 25).values(
                         status=45
                     )
-                ).rowcount
+                ).rowcount  # type: ignore[attr-defined]
                 db.session.commit()
                 if reqs_unmet > 0:
                     logger.info("set %s requests as unmet for asset %s", reqs_unmet, asset_id)

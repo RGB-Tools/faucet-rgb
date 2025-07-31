@@ -5,7 +5,7 @@ from typing import Sequence
 
 import rgb_lib
 
-from flask import current_app
+from flask import Flask, current_app
 from flask_apscheduler import APScheduler
 from rgb_lib import Unspent, Wallet
 
@@ -20,6 +20,16 @@ from .utils import (
 scheduler = APScheduler()
 
 
+def get_app() -> Flask:
+    """Get the Flask app from the scheduler.
+
+    This will only work once the scheduler has been initialized.
+    The returned app is typed as Flask for convenience.
+    """
+    assert scheduler.app
+    return scheduler.app
+
+
 def send_next_batch(spare_utxos: list[Unspent]):
     """Send the next batch of queued requests.
 
@@ -28,7 +38,7 @@ def send_next_batch(spare_utxos: list[Unspent]):
     - keep asset histories separate
     - keep number of unspendable UTXOs low
     """
-    with scheduler.app.app_context():
+    with get_app().app_context():
         logger = get_logger(__name__)
         cfg = current_app.config
 
@@ -71,7 +81,7 @@ def send_next_batch(spare_utxos: list[Unspent]):
 
 def _try_send(reqs: Sequence[Request], cfg, recipient_map, stats):
     """Try to send."""
-    with scheduler.app.app_context():
+    with get_app().app_context():
         logger = get_logger(__name__)
         wallet: Wallet = cfg["WALLET"]
         try:
