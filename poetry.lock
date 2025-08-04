@@ -1328,18 +1328,18 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "rgb-lib"
-version = "0.3.0b1"
+version = "0.3.0b2"
 description = "RGB Lib Python language bindings."
 optional = false
 python-versions = ">=3.9.0"
 groups = ["main"]
 files = [
-    {file = "rgb_lib-0.3.0b1-py3-none-macosx_12_0_arm64.whl", hash = "sha256:624cf8241e55284e67496ef5fd1324ce1d3df6ba9ee396f5510f2f2738ecc59b"},
-    {file = "rgb_lib-0.3.0b1-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:6b49c48707af402808d1a2474b81035945dd56c42dcdd2dc216bd588b532b630"},
-    {file = "rgb_lib-0.3.0b1-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:550611b9328696696b4178d74a2d8b4133ebb99176fcb10462c561e260fa89ab"},
-    {file = "rgb_lib-0.3.0b1-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:6b67fd51e7281e76452623740ddab53cd016826067e69e8dd4b5a9ffe8a988e1"},
-    {file = "rgb_lib-0.3.0b1-py3-none-win_amd64.whl", hash = "sha256:837b39a25d12525fd446cace901ac0b836957fc2ea433d8fe5d4fc43b4d573a5"},
-    {file = "rgb_lib-0.3.0b1.tar.gz", hash = "sha256:baadc4085e3c375d0465bae3bdcf86e7927554c50d589a6d6020ee58f303921b"},
+    {file = "rgb_lib-0.3.0b2-py3-none-macosx_12_0_arm64.whl", hash = "sha256:3385568020ef612d80769097bf69110744dcba1e3fdfed921e8707e242953f7b"},
+    {file = "rgb_lib-0.3.0b2-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:8aaf082412c37c7a06a923a455f567b7e78d919036217914774d59bb07495d2b"},
+    {file = "rgb_lib-0.3.0b2-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:6b5e91a7de750d4e15a2b06b67261528eabbd29ecc6d6b72911c38131d35bded"},
+    {file = "rgb_lib-0.3.0b2-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:19444d84b2d4d2602144de821e7179c712bd04538ad252450897c27d053fabbb"},
+    {file = "rgb_lib-0.3.0b2-py3-none-win_amd64.whl", hash = "sha256:c93bf8ee1404b3bfea7b4184cdb374c0bb7de0db1a7c4aa8e81702e890f103ee"},
+    {file = "rgb_lib-0.3.0b2.tar.gz", hash = "sha256:1a20dd03b65e363568d535ae31415127d8c36511c9dd6bd417f605158dee21b9"},
 ]
 
 [[package]]
@@ -1705,4 +1705,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "~=3.9"
-content-hash = "d712bdd26f472de6693c83f5b1270061a116c79f6afc66a4bdb5be9f42929187"
+content-hash = "1d20d1298afb65071ddeda4754772652d55c474abbebb785a315aee7b976f53e"
