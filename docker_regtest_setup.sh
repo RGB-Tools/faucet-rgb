@@ -27,7 +27,7 @@ if [ -r "$CONFIG_FILE" ] || [ -r "$DATA_DIR" ] || [ -r "$SERVICE_DIR" ]; then
     case $ans in
         y|Y)
             rm -r $CONFIG_FILE $DATA_DIR
-            docker run --rm -v "$(pwd)":/data debian:bookworm \
+            docker run --rm -v "$(pwd)":/data debian:trixie \
                 bash -c "rm -r /data/$SERVICE_DIR"
             ;;
         n|N)

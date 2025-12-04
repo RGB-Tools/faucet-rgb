@@ -1,7 +1,7 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-trixie
 
 RUN apt-get -y update \
-    && apt-get -y install --no-install-recommends curl tini \
+    && apt-get -y install --no-install-recommends adduser curl tini \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ENV PYTHONDONTWRITEBYTECODE="1" PYTHONIOENCODING="UTF-8" PYTHONUNBUFFERED="1"
@@ -14,7 +14,8 @@ ENV APP_DIR="/home/$USER/faucet"
 WORKDIR $APP_DIR
 
 # project setup
-RUN python3 -m pip install --no-cache-dir poetry \
+ENV POETRY_VERSION=2.2.1
+RUN python3 -m pip install --no-cache-dir poetry==${POETRY_VERSION} \
     && echo "export PATH=$PATH:$HOME/.local/bin" >> $HOME/.bashrc
 COPY --chown=$USER:$USER poetry.lock pyproject.toml ./
 COPY --chown=$USER:$USER faucet_rgb ./faucet_rgb
